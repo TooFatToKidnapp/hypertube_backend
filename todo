@@ -1,0 +1,17 @@
+1. Setup Actix_web as the server framework - [√]
+
+2. Add tracing and logging - []
+
+3. Add SQLx as the database driver with Postgres - []
+
+4. set up unit test environment - []
+
+5. Add build script with - []
+	- testing
+	- linting
+	- formatting
+	- code coverage
+
+6. Set up a CI/CD pipeline - []
+
+7. Start the project...
