@@ -2,7 +2,7 @@
 
 2. Add tracing and logging - []
 
-3. Add SQLx as the database driver with Postgres - []
+3. Add SQLx as the database driver with Postgres - [√]
 
 4. set up unit test environment - []
 
