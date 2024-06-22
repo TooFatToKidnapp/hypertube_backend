@@ -1,6 +1,5 @@
 use std::net::TcpListener;
-mod startup;
-mod routes;
+use hypertube_backend::startup;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
