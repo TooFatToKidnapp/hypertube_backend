@@ -1,4 +1,4 @@
-use crate::routes::hello_world::handler;
+use crate::routes::{create_user, hello_world::handler};
 use actix_web::{
     dev::Server,
     web::{self, Data},
@@ -12,6 +12,7 @@ pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std:
     let server = HttpServer::new(move || {
         App::new()
             .route("/", web::get().to(handler))
+            .route("/user/create", web::post().to(create_user))
             .app_data(db_pool.clone())
     })
     .listen(listener)?

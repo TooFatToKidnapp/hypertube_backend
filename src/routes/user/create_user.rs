@@ -1,30 +1,45 @@
-use actix_web::{HttpResponse, web::{Data, Json}};
-use sqlx::PgPool;
-use serde::Deserialize;
 use crate::util::ResponseMessage;
+use chrono::Utc;
+// use uuid::Uuid;
+use sqlx::types::Uuid; // Add this line
 
-#[derive(Deserialize)]
-struct CreateUserRequest {
-		username: String,
-		email: String,
-		password: String,
+use actix_web::{
+    web::{Data, Json},
+    HttpResponse,
+};
+use serde::Deserialize;
+use sqlx::PgPool;
+
+#[derive(Deserialize, Debug)]
+pub struct CreateUserRequest {
+    username: String,
+    email: String,
+    password: String,
 }
 
-async fn create_user(body: Json<CreateUserRequest>, connection: Data<PgPool>) -> HttpResponse {
-		let result = sqlx::query!(
-				r#"
-						INSERT INTO users (username, email, password)
-						VALUES ($1, $2, $3)
+pub async fn create_user(body: Json<CreateUserRequest>, connection: Data<PgPool>) -> HttpResponse {
+	// let id = uuid::Uuid::new_v4();
+    let result = sqlx::query!(
+        r#"
+						INSERT INTO users (id, username, email, password, created_at, updated_at)
+						VALUES ($1, $2, $3, $4, $5, $6)
 				"#,
-				body.username,
-				body.email,
-				body.password
-		)
-		.execute(connection.get_ref())
-		.await;
+				Uuid::new_v4(),
+        body.username,
+        body.email,
+        body.password,
+				Utc::now(),
+				Utc::now()
+    )
+    .execute(connection.get_ref())
+    .await;
 
-		match result {
-				Ok(_) => HttpResponse::Ok().json(ResponseMessage::new("User created successfully")),
-				Err(_) => HttpResponse::InternalServerError().json(ResponseMessage::new("Failed to create user")),
-		}
+    match result {
+        Ok(res) => {
+					println!("db res: {:?}", res);
+					HttpResponse::Ok().json(ResponseMessage::new("User created successfully"))},
+        Err(_) => {
+            HttpResponse::InternalServerError().json(ResponseMessage::new("Failed to create user"))
+        }
+    }
 }
