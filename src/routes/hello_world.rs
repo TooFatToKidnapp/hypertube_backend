@@ -1,9 +1,5 @@
 use actix_web::HttpResponse;
-
-#[derive(serde::Serialize)]
-struct ResponseMessage {
-    message: String,
-}
+use crate::util::ResponseMessage;
 
 pub async fn handler() -> HttpResponse {
     HttpResponse::Ok().json(ResponseMessage {
