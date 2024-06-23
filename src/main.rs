@@ -1,12 +1,12 @@
 use hypertube_backend::configuration::get_configuration;
 use hypertube_backend::startup;
-use hypertube_backend::telemetry::{init_subscriber, get_subscriber};
+use hypertube_backend::telemetry::{get_subscriber, init_subscriber};
 use sqlx::PgPool;
 use std::net::TcpListener;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let subscriber = get_subscriber("hyper_tuber", "info", std::io::stdout);
+    let subscriber = get_subscriber("hyper_tube", "info", std::io::stdout);
     init_subscriber(subscriber);
     let listener = TcpListener::bind("0.0.0.0:8000").expect("Failed to bind");
     let configuration = get_configuration().expect(

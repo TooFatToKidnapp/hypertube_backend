@@ -1,6 +1,6 @@
 1. Setup Actix_web as the server framework - [√]
 
-2. Add tracing and logging - []
+2. Add tracing and logging - [√]
 
 3. Add SQLx as the database driver with Postgres - [√]
 

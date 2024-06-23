@@ -1,7 +1,6 @@
 use crate::util::ResponseMessage;
 use chrono::Utc;
-// use uuid::Uuid;
-use sqlx::types::Uuid; // Add this line
+use sqlx::types::Uuid;
 
 use actix_web::{
     web::{Data, Json},
@@ -9,6 +8,7 @@ use actix_web::{
 };
 use serde::Deserialize;
 use sqlx::PgPool;
+use tracing::Instrument;
 
 #[derive(Deserialize, Debug)]
 pub struct CreateUserRequest {
@@ -18,7 +18,7 @@ pub struct CreateUserRequest {
 }
 
 pub async fn create_user(body: Json<CreateUserRequest>, connection: Data<PgPool>) -> HttpResponse {
-    // let id = uuid::Uuid::new_v4();
+    let query_span = tracing::info_span!("Saving new subscriber details in the database", ?body);
     let result = sqlx::query!(
         r#"
 			INSERT INTO users (id, username, email, password, created_at, updated_at)
@@ -32,14 +32,16 @@ pub async fn create_user(body: Json<CreateUserRequest>, connection: Data<PgPool>
         Utc::now()
     )
     .execute(connection.get_ref())
+    .instrument(query_span)
     .await;
 
     match result {
         Ok(res) => {
-            println!("db res: {:?}", res);
+            tracing::info!("User created successfully");
             HttpResponse::Ok().json(ResponseMessage::new("User created successfully"))
         }
-        Err(_) => {
+        Err(err) => {
+            tracing::error!("Failed to create user {:?}", err);
             HttpResponse::InternalServerError().json(ResponseMessage::new("Failed to create user"))
         }
     }

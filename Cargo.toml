@@ -26,7 +26,6 @@ tracing-log = "0.2.0"
 tracing-subscriber = { version = "0.3.18", features = ["registry", "env-filter", "time"] }
 tracing-actix-web = "0.7.11"
 
-
 [dependencies.sqlx]
 version = "0.7.4"
 default-features = false
