@@ -36,7 +36,7 @@ pub async fn create_user(body: Json<CreateUserRequest>, connection: Data<PgPool>
     .await;
 
     match result {
-        Ok(res) => {
+        Ok(_res) => {
             tracing::info!("User created successfully");
             HttpResponse::Ok().json(ResponseMessage::new("User created successfully"))
         }
