@@ -85,7 +85,7 @@ jobs:
       - name: Deploy to DigitalOcean
         run: |
           ssh -v -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} << 'EOF'
-            cd /root/rust_test_cd
+            cd /root/hypertube_backend
             git pull origin main
             cargo build --release
             sudo systemctl restart hypertube_backend.service
