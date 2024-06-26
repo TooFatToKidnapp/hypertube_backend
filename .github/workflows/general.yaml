@@ -73,21 +73,16 @@ jobs:
     needs: [test, fmt, clippy] # , coverage, security_audit 
     steps:
       - uses: actions/checkout@v4
-
+  
       - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.5.3
+        uses: appleboy/ssh-action@v0.1.7
         with:
-          ssh-private-key: ${{ secrets.SSH_KEY }}
-
-      - name: Debug SSH Connection
-        run: ssh -v -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }}
-
-      - name: Deploy to DigitalOcean
-        run: |
-          ssh -v -o StrictHostKeyChecking=no ${{ secrets.USER }}@${{ secrets.HOST }} << 'EOF'
+          host: ${{ secrets.HOST }}
+          username: ${{ secrets.USER }}
+          key: ${{ secrets.SSH_KEY }}
+          script: |
             cd /root/hypertube_backend
             git pull origin main
             cargo build --release
             cp /root/hypertube_backend/configuration.json /root/hypertube_backend/target/release/configuration.json
             systemctl restart hypertube_backend.service
-          EOF
