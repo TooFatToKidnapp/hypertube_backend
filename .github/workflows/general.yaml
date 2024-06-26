@@ -88,5 +88,6 @@ jobs:
             cd /root/hypertube_backend
             git pull origin main
             cargo build --release
-            sudo systemctl restart hypertube_backend.service
+            cp /root/hypertube_backend/configuration.json /root/hypertube_backend/target/release/configuration.json
+            systemctl restart hypertube_backend.service
           EOF
