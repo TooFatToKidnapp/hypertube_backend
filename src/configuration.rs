@@ -23,18 +23,11 @@ impl DatabaseSettings {
             self.user_name, self.password, self.host, self.port, self.database_name
         )
     }
-
-    pub fn connection_string_without_db(&self) -> String {
-        format!(
-            "postgresql://{}:{}@{}:{}",
-            self.user_name, self.password, self.host, self.port
-        )
-    }
 }
 
-pub fn get_configuration() -> Result<Settings, config::ConfigError> {
+pub fn get_configuration(filename: &str) -> Result<Settings, config::ConfigError> {
     let mut builder = Config::builder();
-    builder = builder.add_source(File::new("configuration", FileFormat::Json));
+    builder = builder.add_source(File::new(filename, FileFormat::Json));
     let config = builder.build()?;
     config.try_deserialize()
 }

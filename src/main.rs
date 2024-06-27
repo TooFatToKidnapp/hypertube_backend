@@ -9,7 +9,7 @@ async fn main() -> std::io::Result<()> {
     let subscriber = get_subscriber("hyper_tube", "info", std::io::stdout);
     init_subscriber(subscriber);
     let listener = TcpListener::bind("0.0.0.0:8000").expect("Failed to bind");
-    let configuration = get_configuration().expect(
+    let configuration = get_configuration("configuration").expect(
         "Failed to read `configuration.json`. Please make sure it exists and is valid JSON.",
     );
     let connection_pool = PgPool::connect(configuration.database.connection_string().as_str())
