@@ -61,7 +61,8 @@ pub async fn configure_database(config: &Settings, parent_db_name: &str) -> PgPo
 pub async fn spawn_app() -> TestApp {
     let listener = TcpListener::bind("0.0.0.0:0").expect("Failed to bind");
     let port = listener.local_addr().unwrap().port();
-    let mut configuration = get_configuration("test_configuration").expect("Failed to read configuration file");
+    let mut configuration =
+        get_configuration("test_configuration").expect("Failed to read configuration file");
     let parent_db_name = configuration.database.database_name.clone();
     configuration.database.database_name = Uuid::new_v4().to_string();
     let connection_pool = configure_database(&configuration, &parent_db_name.to_string()).await;
