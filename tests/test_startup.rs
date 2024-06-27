@@ -4,9 +4,7 @@ use std::net::TcpListener;
 use tokio::task;
 use uuid::Uuid;
 
-pub struct TestApp {
-    pub address: String,
-    pub db_pool: PgPool,
+pub struct TestDatabaseSettings {
     pub db_name: String,
     pub user_name: String,
     pub password: String,
@@ -14,17 +12,26 @@ pub struct TestApp {
     pub parent_db_name: String,
 }
 
+pub struct TestApp {
+    pub address: String,
+    pub db_pool: PgPool,
+    pub database_settings: TestDatabaseSettings,
+}
+
 impl Drop for TestApp {
     fn drop(&mut self) {
-        let db_name = self.db_name.clone();
+        let db_name = self.database_settings.db_name.clone();
         let connection_url = format!(
             "postgresql://{}:{}@{}/{}",
-            self.user_name, self.password, self.host, self.parent_db_name
+            self.database_settings.user_name,
+            self.database_settings.password,
+            self.database_settings.host,
+            self.database_settings.parent_db_name
         );
         task::spawn_blocking(move || {
             let rt = tokio::runtime::Runtime::new().unwrap();
             rt.block_on(async move {
-                let mut connection = PgConnection::connect(connection_url.as_str())
+                let mut connection: PgConnection = PgConnection::connect(connection_url.as_str())
                     .await
                     .expect("Failed to connect to Postgres for cleanup");
                 connection
@@ -73,10 +80,12 @@ pub async fn spawn_app() -> TestApp {
     TestApp {
         address: format!("http://127.0.0.1:{}", port),
         db_pool: connection_pool,
-        db_name: configuration.database.database_name,
-        user_name: configuration.database.user_name,
-        password: configuration.database.password,
-        host: configuration.database.host,
-        parent_db_name: parent_db_name.to_string(),
+        database_settings: TestDatabaseSettings {
+            db_name: configuration.database.database_name,
+            user_name: configuration.database.user_name,
+            host: configuration.database.host,
+            password: configuration.database.password,
+            parent_db_name,
+        },
     }
 }
