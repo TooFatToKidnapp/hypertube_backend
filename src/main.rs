@@ -1,3 +1,4 @@
+use dotenv::dotenv;
 use hypertube_backend::configuration::get_configuration;
 use hypertube_backend::startup;
 use hypertube_backend::telemetry::{get_subscriber, init_subscriber};
@@ -6,6 +7,7 @@ use std::net::TcpListener;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    dotenv().ok();
     let subscriber = get_subscriber("hyper_tube", "info", std::io::stdout);
     init_subscriber(subscriber);
     let listener = TcpListener::bind("0.0.0.0:8000").expect("Failed to bind");
