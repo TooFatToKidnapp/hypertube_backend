@@ -1,3 +1,4 @@
+#[warn(dead_code)]
 use dotenv::dotenv;
 use hypertube_backend::configuration::get_configuration;
 use hypertube_backend::startup;
