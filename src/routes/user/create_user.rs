@@ -17,6 +17,7 @@ const CHECK_FOR_UPPERCASE: &str = ".*[A-Z].*";
 const CHECK_FOR_LOWERCASE: &str = ".*[a-z].*";
 const CHECK_FOR_NUMBER: &str = ".*[0-9].*";
 const CHECK_FOR_SPECIAL_CHARACTER: &str = r".*[^A-Za-z0-9].*";
+const FORBIDDEN_CHARACTERS: &[char] = &['/', '(', ')', '"', '<', '>', '\\', '{', '}', '\''];
 
 fn validate_password(password: &str) -> Result<(), ValidationError> {
     if password.len() < 8 {
@@ -65,10 +66,17 @@ fn validate_user_name(user_name: &str) -> Result<(), ValidationError> {
         return Err(ValidationError::new("User name length error")
             .with_message(Cow::from("User name can't be empty")));
     }
-    if user_name.trim().len() == 0 {
+    if user_name.trim().is_empty() {
         return Err(
             ValidationError::new("User name content error").with_message(Cow::from(
                 "User name must contain at least 1 non-whitespace character",
+            )),
+        );
+    }
+    if user_name.chars().any(|c| FORBIDDEN_CHARACTERS.contains(&c)) {
+        return Err(
+            ValidationError::new("User name content error").with_message(Cow::from(
+                "User name cannot contain any of the following characters [/, (, ), \", <, >, \\, {, }, ']",
             )),
         );
     }
@@ -86,15 +94,15 @@ pub struct CreateUserRequest {
 }
 
 pub async fn create_user(body: Json<CreateUserRequest>, connection: Data<PgPool>) -> HttpResponse {
+    tracing::info!("Got request body: {:#?}", body);
     let is_valid = body.validate();
     if let Err(error) = is_valid {
         let source = error.field_errors();
         for i in source.iter() {
             for err in i.1.iter() {
                 if let Some(message) = err.message.as_ref() {
-                    return HttpResponse::BadRequest().json(ResponseMessage {
-                        message: message.as_ref().to_string(),
-                    });
+                    tracing::error!("Error: {}", message.as_ref());
+                    return HttpResponse::BadRequest().json(ResponseMessage::new(message.as_ref()));
                 }
             }
         }

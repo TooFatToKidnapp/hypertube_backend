@@ -1,4 +1,5 @@
 use crate::routes::{create_user, hello_world::handler};
+use crate::middleware::*;
 use actix_web::{
     dev::Server,
     web::{self, Data},
