@@ -10,7 +10,7 @@ use tracing_actix_web::TracingLogger;
 
 use actix_cors::Cors;
 use actix_web::http::header;
-
+use dotenv::dotenv;
 use std::env;
 
 fn configure_cors(frontend_url: &str) -> Cors {
@@ -27,6 +27,7 @@ fn configure_cors(frontend_url: &str) -> Cors {
 }
 
 pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Error> {
+    dotenv().ok();
     let db_pool = Data::new(db_pool);
     let frontend_url = env::var("FRONTEND_URL").expect("FRONTEND_URL must be set");
 

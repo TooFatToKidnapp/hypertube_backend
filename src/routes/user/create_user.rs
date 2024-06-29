@@ -1,5 +1,3 @@
-use std::error::Error;
-
 use crate::util::ResponseMessage;
 use actix_web::{
     web::{Data, Json},
@@ -9,7 +7,9 @@ use chrono::Utc;
 use regex::Regex;
 use serde::Deserialize;
 use sqlx::types::Uuid;
-use sqlx::{Connection, PgConnection, PgPool};
+use sqlx::PgPool;
+use sqlx::Error::Database;
+use std::borrow::Cow;
 use tracing::Instrument;
 use validator::{Validate, ValidationError};
 
@@ -17,52 +17,6 @@ const CHECK_FOR_UPPERCASE: &str = ".*[A-Z].*";
 const CHECK_FOR_LOWERCASE: &str = ".*[a-z].*";
 const CHECK_FOR_NUMBER: &str = ".*[0-9].*";
 const CHECK_FOR_SPECIAL_CHARACTER: &str = r".*[^A-Za-z0-9].*";
-
-// fn validate_unique_email(user_email: &str) -> Result<(), ValidationError> {
-//     let rt = tokio::runtime::Runtime::new().expect("Can't initialize the tokio runtime");
-//     let query_span = tracing::info_span!(
-//         "Checking if email already exists in the database",
-//         ?user_email
-//     );
-
-//     let configuration = crate::configuration::get_configuration("configuration")
-//         .expect("Failed to locate configuration.json file");
-//     let connection_url = format!(
-//         "postgresql://{}:{}@{}/{}",
-//         configuration.database.user_name,
-//         configuration.database.password,
-//         configuration.database.host,
-//         configuration.database.database_name
-//     );
-
-//     let result = rt.spawn_blocking( async  move  {
-//         let connection = PgConnection::connect(connection_url.as_str())
-//             .await
-//             .expect("Failed to connect to Postgres for cleanup");
-
-//         return sqlx::query!(
-//             r#"
-//             SELECT EXISTS(SELECT 1 FROM users WHERE email = $1)
-//             "#,
-//             user_email
-//         )
-//         .fetch_one(&mut connection)
-//         .instrument(query_span)
-//         .await;
-//     });
-
-//     match result {
-//         Ok(row) => {
-//             if let Some(_) = row.exists {
-//                 Err(ValidationError::new("User already exists with that email"))
-//             } else {
-//                 Ok(())
-//             }
-//         }
-//         Err(_) => Err(ValidationError::new("Something went wrong")),
-//     }
-// }
-use std::borrow::Cow;
 
 fn validate_password(password: &str) -> Result<(), ValidationError> {
     if password.len() < 8 {
@@ -102,16 +56,30 @@ fn validate_password(password: &str) -> Result<(), ValidationError> {
     Ok(())
 }
 
+fn validate_user_name(user_name: &str) -> Result<(), ValidationError> {
+    if user_name.len() > 50 {
+        return Err(ValidationError::new("User name length error")
+            .with_message(Cow::from("User name must be less then 50 characters")));
+    }
+    if user_name.len() < 1 {
+        return Err(ValidationError::new("User name length error")
+            .with_message(Cow::from("User name can't be empty")));
+    }
+    if user_name.trim().len() == 0 {
+        return Err(
+            ValidationError::new("User name content error").with_message(Cow::from(
+                "User name must contain at least 1 non-whitespace character",
+            )),
+        );
+    }
+    Ok(())
+}
+
 #[derive(Deserialize, Debug, Validate)]
 pub struct CreateUserRequest {
-    #[validate(length(
-        min = 1,
-        max = 50,
-        message = "The user name must be between 1 and 50 characters in length."
-    ))]
+    #[validate(custom(function = "validate_user_name"))]
     username: String,
     #[validate(email(message = "Not a valid email"))]
-    // #[validate(email, custom(function = "validate_unique_email"))]
     email: String,
     #[validate(custom(function = "validate_password"))]
     password: String,
@@ -119,15 +87,13 @@ pub struct CreateUserRequest {
 
 pub async fn create_user(body: Json<CreateUserRequest>, connection: Data<PgPool>) -> HttpResponse {
     let is_valid = body.validate();
-    println!("\nis_valid\n {:#?}", is_valid);
     if let Err(error) = is_valid {
         let source = error.field_errors();
         for i in source.iter() {
             for err in i.1.iter() {
-                println!("err: {}", err);
                 if let Some(message) = err.message.as_ref() {
                     return HttpResponse::BadRequest().json(ResponseMessage {
-                        message: message.as_ref().to_string()
+                        message: message.as_ref().to_string(),
                     });
                 }
             }
@@ -157,8 +123,17 @@ pub async fn create_user(body: Json<CreateUserRequest>, connection: Data<PgPool>
             HttpResponse::Ok().json(ResponseMessage::new("User created successfully"))
         }
         Err(err) => {
-            tracing::error!("Failed to create user {:?}", err);
-            HttpResponse::InternalServerError().json(ResponseMessage::new("Failed to create user"))
+            match err {
+                Database(err) if err.message().contains("duplicate key value violates unique constraint") && err.message().contains("email") => {
+                    tracing::error!("Email already exists in the database");
+                    HttpResponse::BadRequest().json(ResponseMessage::new("Email already exists"))
+                },
+                _ => {
+                    tracing::error!("Failed to create user {:?}", err);
+                    HttpResponse::InternalServerError().json(ResponseMessage::new("Failed to create user"))
+                }
+            }
+
         }
     }
 }
