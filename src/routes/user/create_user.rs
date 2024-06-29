@@ -6,11 +6,12 @@ use actix_web::{
 use chrono::Utc;
 use regex::Regex;
 use serde::Deserialize;
+use sha3::Digest;
 use sqlx::types::Uuid;
-use sqlx::PgPool;
 use sqlx::Error::Database;
+use sqlx::PgPool;
 use std::borrow::Cow;
-use tracing::Instrument;
+use tracing::{info, Instrument};
 use validator::{Validate, ValidationError};
 
 const CHECK_FOR_UPPERCASE: &str = ".*[A-Z].*";
@@ -109,15 +110,18 @@ pub async fn create_user(body: Json<CreateUserRequest>, connection: Data<PgPool>
         return HttpResponse::BadRequest().finish();
     }
     let query_span = tracing::info_span!("Saving new subscriber details in the database", ?body);
+    let password_hash = sha3::Sha3_256::digest(body.password.as_bytes());
+    let password_hash = format!("{:x}", password_hash);
+    info!("Hashed password {}", password_hash);
     let result = sqlx::query!(
         r#"
-			INSERT INTO users (id, username, email, password, created_at, updated_at)
+			INSERT INTO users (id, username, email, password_hash, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6)
 		"#,
         Uuid::new_v4(),
         body.username,
         body.email,
-        body.password,
+        password_hash,
         Utc::now(),
         Utc::now()
     )
@@ -130,18 +134,21 @@ pub async fn create_user(body: Json<CreateUserRequest>, connection: Data<PgPool>
             tracing::info!("User created successfully");
             HttpResponse::Ok().json(ResponseMessage::new("User created successfully"))
         }
-        Err(err) => {
-            match err {
-                Database(err) if err.message().contains("duplicate key value violates unique constraint") && err.message().contains("email") => {
-                    tracing::error!("Email already exists in the database");
-                    HttpResponse::BadRequest().json(ResponseMessage::new("Email already exists"))
-                },
-                _ => {
-                    tracing::error!("Failed to create user {:?}", err);
-                    HttpResponse::InternalServerError().json(ResponseMessage::new("Failed to create user"))
-                }
+        Err(err) => match err {
+            Database(err)
+                if err
+                    .message()
+                    .contains("duplicate key value violates unique constraint")
+                    && err.message().contains("email") =>
+            {
+                tracing::error!("Email already exists in the database");
+                HttpResponse::BadRequest().json(ResponseMessage::new("Email already exists"))
             }
-
-        }
+            _ => {
+                tracing::error!("Failed to create user {:?}", err);
+                HttpResponse::InternalServerError()
+                    .json(ResponseMessage::new("Failed to create user"))
+            }
+        },
     }
 }
