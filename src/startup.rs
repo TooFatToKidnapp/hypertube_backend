@@ -1,5 +1,6 @@
 use crate::middleware::*;
-use crate::routes::{create_user, hello_world::handler};
+use crate::routes::hello_world::handler;
+use crate::routes::user::user_source;
 use actix_web::{
     dev::Server,
     web::{self, Data},
@@ -38,8 +39,8 @@ pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std:
         App::new()
             .wrap(cors)
             .wrap(TracingLogger::default())
+            .service(user_source())
             .route("/", web::get().to(handler))
-            .route("/user/create", web::post().to(create_user))
             .app_data(db_pool.clone())
     })
     .listen(listener)?
