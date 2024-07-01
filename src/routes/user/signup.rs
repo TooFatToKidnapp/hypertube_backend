@@ -74,7 +74,7 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
     .execute(connection.get_ref())
     .instrument(query_span)
     .await;
-
+    // let token =
     match result {
         Ok(_res) => {
             tracing::info!("User created successfully");

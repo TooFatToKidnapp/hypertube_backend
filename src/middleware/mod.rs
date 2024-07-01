@@ -1,3 +1,3 @@
-pub mod check_jwt_token;
+pub mod authentication;
 
-pub use check_jwt_token::*;
+pub use authentication::*;
