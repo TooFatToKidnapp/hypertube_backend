@@ -1,14 +1,11 @@
 use super::util::{validate_password, validate_user_name};
-use crate::{
-    routes::{generate_token, user},
-    util::ResponseMessage,
-};
+use crate::{routes::generate_token, util::ResponseMessage};
 use actix_web::{
     web::{Data, Json},
     HttpResponse,
 };
 use argon2::{
-    password_hash::{rand_core::OsRng, PasswordHash, PasswordHasher, PasswordVerifier, SaltString},
+    password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
     Argon2,
 };
 use chrono::Utc;
@@ -17,7 +14,7 @@ use serde_json::json;
 use sqlx::types::Uuid;
 use sqlx::Error::Database;
 use sqlx::PgPool;
-use tracing::{info, Instrument};
+use tracing::Instrument;
 use validator::Validate;
 
 #[derive(Deserialize, Debug, Validate)]
@@ -79,7 +76,7 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
     .fetch_one(connection.get_ref())
     .instrument(query_span)
     .await;
-    // let token =
+
     let user = match query_result {
         Err(err) => match err {
             Database(err)

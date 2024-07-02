@@ -7,7 +7,7 @@ use futures_util::{future::LocalBoxFuture, FutureExt};
 use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use sqlx::{Executor, PgPool};
+use sqlx::PgPool;
 use std::{
     future::{ready, Ready},
     rc::Rc,

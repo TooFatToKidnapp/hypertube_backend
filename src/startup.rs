@@ -1,4 +1,3 @@
-use crate::middleware::*;
 use crate::routes::hello_world::handler;
 use crate::routes::user::user_source;
 use actix_web::{

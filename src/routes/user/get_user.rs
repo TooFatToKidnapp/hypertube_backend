@@ -22,7 +22,7 @@ pub async fn get_user(req: HttpRequest) -> HttpResponse {
         }
         None => {
             tracing::info!("User field not found in req object");
-            HttpResponse::BadRequest().json(json!({
+            HttpResponse::NotFound().json(json!({
                 "error": "user not found"
             }))
         }

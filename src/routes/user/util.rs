@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
 use actix_web::{
-    guard::Header,
     web::{self, get, post},
     Scope,
 };
