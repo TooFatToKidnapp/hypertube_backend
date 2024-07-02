@@ -91,7 +91,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
     match token_result {
         Ok(token) => {
             tracing::info!("successful Login");
-            return HttpResponse::Ok().json(json!({
+            HttpResponse::Ok().json(json!({
                 "data" : {
                     "id": user.id.to_string(),
                     "email": user.email,
@@ -100,13 +100,13 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
                     "updated_at": user.updated_at.to_string(),
                     "token": token
                 }
-            }));
+            }))
         }
         Err(_) => {
             tracing::error!("Error Generating token");
-            return HttpResponse::Unauthorized().json(json!({
+            HttpResponse::Unauthorized().json(json!({
                 "Error": "Something went wrong"
-            }));
+            }))
         }
     }
 }

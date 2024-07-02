@@ -75,7 +75,7 @@ pub fn validate_user_name(user_name: &str) -> Result<(), ValidationError> {
         return Err(ValidationError::new("User name length error")
             .with_message(Cow::from("User name must be less then 50 characters")));
     }
-    if user_name.len() < 1 {
+    if user_name.is_empty() {
         return Err(ValidationError::new("User name length error")
             .with_message(Cow::from("User name can't be empty")));
     }
