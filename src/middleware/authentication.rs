@@ -95,10 +95,7 @@ where
         if parts.len() != 2 || (parts[0] != "Bearer" && parts[0] != "bearer") || parts[1].is_empty()
         {
             tracing::error!(
-                "Invalid AUTHORIZATION header len = {}, [0] = [{}], [1] = [{}]",
-                parts.len(),
-                parts[0],
-                parts[1]
+                "Invalid AUTHORIZATION header",
             );
             let http_res = HttpResponse::Unauthorized().json(json!({
                 "Error" : "Invalid access token"
