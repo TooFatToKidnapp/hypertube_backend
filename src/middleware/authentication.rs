@@ -94,9 +94,7 @@ where
 
         if parts.len() != 2 || (parts[0] != "Bearer" && parts[0] != "bearer") || parts[1].is_empty()
         {
-            tracing::error!(
-                "Invalid AUTHORIZATION header",
-            );
+            tracing::error!("Invalid AUTHORIZATION header",);
             let http_res = HttpResponse::Unauthorized().json(json!({
                 "Error" : "Invalid access token"
             }));
@@ -114,7 +112,7 @@ where
 
         let token = match token_result {
             Ok(token) => {
-                tracing::info!("token decoded sccussefuly");
+                tracing::info!("token decoded successfully");
                 token.claims
             }
             Err(_) => {
