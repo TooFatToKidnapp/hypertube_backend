@@ -1,5 +1,8 @@
 use super::util::{validate_password, validate_user_name};
-use crate::util::ResponseMessage;
+use crate::{
+    routes::{generate_token, user},
+    util::ResponseMessage,
+};
 use actix_web::{
     web::{Data, Json},
     HttpResponse,
@@ -59,27 +62,25 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
             }));
         }
     };
-    let result = sqlx::query!(
+    let user_id = Uuid::new_v4();
+    let query_result = sqlx::query!(
         r#"
 			INSERT INTO users (id, username, email, password_hash, created_at, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING *
 		"#,
-        Uuid::new_v4(),
+        user_id,
         body.username,
         body.email,
         password_hash,
         Utc::now(),
         Utc::now()
     )
-    .execute(connection.get_ref())
+    .fetch_one(connection.get_ref())
     .instrument(query_span)
     .await;
     // let token =
-    match result {
-        Ok(_res) => {
-            tracing::info!("User created successfully");
-            HttpResponse::Ok().json(ResponseMessage::new("User created successfully"))
-        }
+    let user = match query_result {
         Err(err) => match err {
             Database(err)
                 if err
@@ -88,13 +89,39 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
                     && err.message().contains("email") =>
             {
                 tracing::error!("Email already exists in the database");
-                HttpResponse::BadRequest().json(ResponseMessage::new("Email already exists"))
+                return HttpResponse::BadRequest()
+                    .json(ResponseMessage::new("Email already exists"));
             }
             _ => {
                 tracing::error!("Failed to create user {:?}", err);
-                HttpResponse::InternalServerError()
-                    .json(ResponseMessage::new("Failed to create user"))
+                return HttpResponse::InternalServerError()
+                    .json(ResponseMessage::new("Failed to create user"));
             }
         },
+        Ok(user) => user,
+    };
+
+    tracing::info!("Generating user token");
+
+    let token_result = generate_token(user_id.to_string());
+    match token_result {
+        Ok(token) => {
+            tracing::info!("successful Login");
+            return HttpResponse::Ok().json(json!({
+                "data" : {
+                    "token": token,
+                    "email": user.email,
+                    "created_at": user.created_at.to_string(),
+                    "updated_at": user.updated_at.to_string(),
+                    "username" : user.username,
+                }
+            }));
+        }
+        Err(_) => {
+            tracing::error!("Error Generating token");
+            return HttpResponse::Unauthorized().json(json!({
+                "Error": "Something went wrong"
+            }));
+        }
     }
 }

@@ -1,3 +1,5 @@
+use crate::routes::generate_token;
+
 use super::util::validate_password;
 use actix_web::{
     web::{Data, Json},
@@ -62,7 +64,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
     let result = PasswordHash::new(user.password_hash.as_str());
     let parsed_hash = match result {
         Ok(hash) => {
-            tracing::info!("parsed the password hash");
+            tracing::info!("parsed the hashed password");
             hash
         }
         Err(_) => {
@@ -75,21 +77,35 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
         .verify_password(body.password.as_bytes(), &parsed_hash)
         .is_ok();
     match result {
-        true => {
+        true => {}
+        false => {
+            tracing::error!("Wrong Password");
+            return HttpResponse::Unauthorized().json(json!({
+                "Error": "Invalid email or password"
+            }));
+        }
+    };
+    tracing::info!("Password is correct");
+
+    let token_result = generate_token(user.id.to_string());
+    match token_result {
+        Ok(token) => {
+            tracing::info!("successful Login");
             return HttpResponse::Ok().json(json!({
                 "data" : {
                     "id": user.id.to_string(),
                     "email": user.email,
                     "username": user.username,
                     "created_at": user.created_at.to_string(),
-                    "updated_at": user.updated_at.to_string()
+                    "updated_at": user.updated_at.to_string(),
+                    "token": token
                 }
             }));
         }
-        false => {
-            tracing::error!("Invalid Password");
+        Err(_) => {
+            tracing::error!("Error Generating token");
             return HttpResponse::Unauthorized().json(json!({
-                "Error": "Invalid email or password"
+                "Error": "Something went wrong"
             }));
         }
     }

@@ -39,8 +39,8 @@ pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std:
         App::new()
             .wrap(cors)
             .wrap(TracingLogger::default())
-            .service(user_source())
-            .route("/", web::get().to(handler).wrap(Authentication::new(db_pool.as_ref().clone())))
+            .service(user_source(&db_pool))
+            .route("/", web::get().to(handler))
             .app_data(db_pool.clone())
     })
     .listen(listener)?

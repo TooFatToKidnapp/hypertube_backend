@@ -1,19 +1,30 @@
 use std::borrow::Cow;
 
 use actix_web::{
+    guard::Header,
     web::{self, get, post},
     Scope,
 };
+use chrono::{Duration, Utc};
+use jsonwebtoken::{encode, EncodingKey, Header};
 use regex::Regex;
+use sqlx::PgPool;
 use validator::ValidationError;
+
+use crate::middleware::{Authentication, Claims};
 
 use super::{get_user, user_login, user_signup};
 
-pub fn user_source() -> Scope {
+pub fn user_source(db_pool: &PgPool) -> Scope {
     web::scope("/user")
         .route("/sign-up", web::post().to(user_signup))
         .route("/login", post().to(user_login))
-        .route("/", get().to(get_user))
+        .route(
+            "",
+            get()
+                .to(get_user)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
 }
 
 const CHECK_FOR_UPPERCASE: &str = ".*[A-Z].*";
@@ -84,4 +95,15 @@ pub fn validate_user_name(user_name: &str) -> Result<(), ValidationError> {
         );
     }
     Ok(())
+}
+
+pub fn generate_token(id: String) -> Result<String, jsonwebtoken::errors::Error> {
+    let exp = (Utc::now() + Duration::days(7)).timestamp() as usize;
+    let claims = Claims { id, exp };
+    let secret = std::env::var("JWT_SECRET").unwrap();
+    encode(
+        &Header::default(),
+        &claims,
+        &EncodingKey::from_secret(secret.as_str().as_ref()),
+    )
 }
