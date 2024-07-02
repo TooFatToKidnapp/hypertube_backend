@@ -27,9 +27,15 @@ tracing-subscriber = { version = "0.3.18", features = ["registry", "env-filter",
 tracing-actix-web = "0.7.11"
 actix-cors = "0.7.0"
 dotenv = "0.15.0"
+validator = { version ="0.18.1", features = ["derive"] }
+regex = "1.10.5"
+sha3 = "0.10.8"
+argon2 = { version = "0.5.3", features = ["std"] }
+futures-util = "0.3.30"
+jsonwebtoken = "9.3.0"
 
 [dependencies.sqlx]
-version = "0.7.0"
+version = "0.7.4"
 default-features = false
 features = [
 	"runtime-tokio-rustls",

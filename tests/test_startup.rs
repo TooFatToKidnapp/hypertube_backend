@@ -12,6 +12,7 @@ pub struct TestDatabaseSettings {
     pub parent_db_name: String,
 }
 
+#[allow(dead_code)]
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
@@ -55,7 +56,14 @@ pub async fn configure_database(config: &Settings, parent_db_name: &str) -> PgPo
         .execute(format!(r#"CREATE DATABASE "{}""#, config.database.database_name).as_str())
         .await
         .expect("Failed to create database.");
-    let connection_pool = PgPool::connect(url.as_str())
+    let test_database_url = format!(
+        "postgresql://{}:{}@{}/{}",
+        config.database.user_name,
+        config.database.password,
+        config.database.host,
+        config.database.database_name
+    );
+    let connection_pool = PgPool::connect(test_database_url.as_str())
         .await
         .expect("Failed to connect to postgres");
     sqlx::migrate!("./migrations")
