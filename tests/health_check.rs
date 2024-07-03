@@ -1,6 +1,13 @@
 mod test_startup;
 use reqwest;
+use serde::Deserialize;
 use test_startup::*;
+
+
+#[derive(Deserialize)]
+struct ResponseMessage {
+    message: String,
+}
 
 #[actix_rt::test]
 async fn check_server_health() {
@@ -15,7 +22,7 @@ async fn check_server_health() {
 
     assert!(res.status().is_success());
     let body = res
-        .json::<hypertube_backend::util::ResponseMessage>()
+        .json::<ResponseMessage>()
         .await
         .expect("Failed to parse the response body");
     assert_eq!(body.message.as_str(), "Hello From Actix Server!!");

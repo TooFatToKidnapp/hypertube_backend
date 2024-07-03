@@ -29,10 +29,11 @@ actix-cors = "0.7.0"
 dotenv = "0.15.0"
 validator = { version ="0.18.1", features = ["derive"] }
 regex = "1.10.5"
-sha3 = "0.10.8"
 argon2 = { version = "0.5.3", features = ["std"] }
 futures-util = "0.3.30"
 jsonwebtoken = "9.3.0"
+passport-strategies = "0.1.5"
+oauth2 = "4.4.2"
 
 [dependencies.sqlx]
 version = "0.7.4"
