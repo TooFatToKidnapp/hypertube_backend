@@ -9,6 +9,7 @@ use passport_strategies::strategies::Strategy;
 use reqwest::Url;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use std::env;
 
 #[derive(Clone, Debug)]
 pub struct FortyTwoStrategy {
@@ -123,13 +124,14 @@ pub async fn authenticate_forty_two(
 }
 
 fn generate_forty_two_passport() -> PassPortBasicClient {
-    let mut passport = PassPortBasicClient::default().using(
+    let mut passport = PassPortBasicClient::default();
+		passport.using(
         "42",
         FortyTwoStrategy::new(
-            "u-s4t2ud-eef44324e543600abd61b82e4023ef5dec02f4be974939405cfe774d89fef4da",
-            "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",
-            "http://127.0.0.1:8000/auth/redirect",
-            "http://google.com",
+            env::var("42_CLIENT_UID").unwrap(),
+            env::var("42_CLIENT_SECRET").unwrap(),
+            env::var("42_REDIRECT_URI").unwrap(),
+            env::var("42_FAILURE_REDIRECT_URI").unwrap(),
             Vec::new(),
         ),
     );
