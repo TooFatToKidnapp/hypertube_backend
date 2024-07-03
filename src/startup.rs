@@ -1,4 +1,5 @@
-use crate::routes::hello_world::handler;
+use crate::passport::forty_two_auth_source;
+use crate::{passport::google_auth_source, routes::hello_world::handler};
 use crate::routes::user::user_source;
 use actix_web::{
     dev::Server,
@@ -38,6 +39,8 @@ pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std:
         App::new()
             .wrap(cors)
             .wrap(TracingLogger::default())
+            .service(google_auth_source())
+            .service(forty_two_auth_source())
             .service(user_source(&db_pool))
             .route("/", web::get().to(handler))
             .app_data(db_pool.clone())

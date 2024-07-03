@@ -7,9 +7,9 @@ use oauth2::{Scope, TokenUrl};
 use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, StateCode};
 use passport_strategies::strategies::Strategy;
 use reqwest::Url;
+use std::env;
 use std::sync::Arc;
 use tokio::sync::RwLock;
-use std::env;
 
 #[derive(Clone, Debug)]
 pub struct FortyTwoStrategy {
@@ -123,17 +123,30 @@ pub async fn authenticate_forty_two(
     }
 }
 
-fn generate_forty_two_passport() -> PassPortBasicClient {
+pub fn generate_forty_two_passport() -> PassPortBasicClient {
     let mut passport = PassPortBasicClient::default();
-		passport.using(
+    let mut backend_url = env::var("BACKEND_URL").unwrap();
+    backend_url.push_str("/redirect/42");
+
+    passport.using(
         "42",
         FortyTwoStrategy::new(
-            env::var("42_CLIENT_UID").unwrap(),
-            env::var("42_CLIENT_SECRET").unwrap(),
-            env::var("42_REDIRECT_URI").unwrap(),
-            env::var("42_FAILURE_REDIRECT_URI").unwrap(),
+            env::var("CLIENT_UID_42").unwrap(),
+            env::var("CLIENT_SECRET_42").unwrap(),
+            backend_url.as_str(),
+            env::var("FAILURE_REDIRECT_URI").unwrap(),
             Vec::new(),
         ),
     );
     passport
+}
+
+pub fn forty_two_auth_source() -> actix_web::Scope {
+    let passport = generate_forty_two_passport();
+    let passport_clone = Arc::new(RwLock::new(passport));
+
+    web::scope("")
+        .app_data(Data::new(passport_clone.clone()))
+        .route("/redirect/42", web::get().to(authenticate_forty_two))
+        .route("/auth/42", web::get().to(forty_tow))
 }
