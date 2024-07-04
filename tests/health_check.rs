@@ -3,7 +3,6 @@ use reqwest;
 use serde::Deserialize;
 use test_startup::*;
 
-
 #[derive(Deserialize)]
 struct ResponseMessage {
     message: String,

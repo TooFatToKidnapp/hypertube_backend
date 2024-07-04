@@ -1,5 +1,5 @@
-use crate::passport::{forty_two_auth_source, github_auth_source};
-use crate::{passport::google_auth_source, routes::hello_world::handler};
+use crate::passport::configure_passport_service;
+use crate::routes::hello_world::handler;
 use crate::routes::user::user_source;
 use actix_web::{
     dev::Server,
@@ -14,7 +14,6 @@ use actix_cors::Cors;
 use actix_web::http::header;
 use dotenv::dotenv;
 use std::env;
-
 fn configure_cors(frontend_url: &str) -> Cors {
     let mut cors = Cors::default();
     cors = if frontend_url == "*" {
@@ -33,15 +32,13 @@ pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std:
     let db_pool = Data::new(db_pool);
     let frontend_url = env::var("FRONTEND_URL").expect("FRONTEND_URL must be set");
 
-    let server = HttpServer::new(move || {
+    let server: Server = HttpServer::new(move || {
         let cors = configure_cors(frontend_url.as_str());
 
         App::new()
             .wrap(cors)
             .wrap(TracingLogger::default())
-            .service(google_auth_source())
-            .service(forty_two_auth_source())
-            .service(github_auth_source())
+            .configure(configure_passport_service)
             .service(user_source(&db_pool))
             .route("/", web::get().to(handler))
             .app_data(db_pool.clone())

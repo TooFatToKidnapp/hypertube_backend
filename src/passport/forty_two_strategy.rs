@@ -8,8 +8,8 @@ use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, S
 use passport_strategies::strategies::Strategy;
 use reqwest::Url;
 use std::env;
-use std::sync::Arc;
-use tokio::sync::RwLock;
+
+use super::AppState;
 
 #[derive(Clone, Debug)]
 pub struct FortyTwoStrategy {
@@ -90,8 +90,8 @@ impl Strategy for FortyTwoStrategy {
     }
 }
 
-pub async fn forty_tow(passport: Data<Arc<RwLock<PassPortBasicClient>>>) -> HttpResponse {
-    let mut auth = passport.write().await;
+pub async fn forty_tow(passport: Data<AppState>) -> HttpResponse {
+    let mut auth = passport.passport_42.write().await;
     auth.authenticate("42");
     let url = auth.generate_redirect_url();
     HttpResponse::SeeOther()
@@ -100,10 +100,10 @@ pub async fn forty_tow(passport: Data<Arc<RwLock<PassPortBasicClient>>>) -> Http
 }
 
 pub async fn authenticate_forty_two(
-    auth: Data<Arc<RwLock<PassPortBasicClient>>>,
+    auth: Data<AppState>,
     authstate: web::Query<StateCode>,
 ) -> HttpResponse {
-    let mut auth = auth.write().await;
+    let mut auth = auth.passport_42.write().await;
     // The `response` is an enum. It can either be a failure_redirect or profile
     match auth.get_profile(authstate.0).await {
         // The profile is a json value containing the user profile, access_token and refresh_token.
@@ -139,14 +139,4 @@ pub fn generate_forty_two_passport() -> PassPortBasicClient {
         ),
     );
     passport
-}
-
-pub fn forty_two_auth_source() -> actix_web::Scope {
-    let passport = generate_forty_two_passport();
-    let passport_clone = Arc::new(RwLock::new(passport));
-
-    web::scope("")
-        .app_data(Data::new(passport_clone.clone()))
-        .route("/redirect/42", web::get().to(authenticate_forty_two))
-        .route("/auth/42", web::get().to(forty_tow))
 }

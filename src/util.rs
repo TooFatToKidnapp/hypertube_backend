@@ -15,4 +15,3 @@ pub fn check_for_necessary_env() {
     env::var("GITHUB_CLIENT_SECRET").expect("GITHUB_CLIENT_SECRET env must be set");
     env::var("GITHUB_CLIENT_SCOPE").expect("GITHUB_CLIENT_SCOPE env must be set");
 }
-
