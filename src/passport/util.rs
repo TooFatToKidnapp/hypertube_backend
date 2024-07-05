@@ -45,14 +45,11 @@ pub fn configure_passport_service(cfg: &mut web::ServiceConfig) {
     let github_passport_clone = Arc::new(RwLock::new(github_passport));
 
     let state = AppState {
-        google_passport: google_passport_clone.clone(),
-        github_passport: github_passport_clone.clone(),
-        passport_42: passport_42_clone.clone(),
+        google_passport: google_passport_clone,
+        github_passport: github_passport_clone,
+        passport_42: passport_42_clone,
     };
 
-    // cfg.app_data(Data::new(google_passport_clone.clone()))
-    //     .app_data(Data::new(github_passport_clone.clone()))
-    //     .app_data(Data::new(passport_42_clone.clone()))
     cfg.app_data(Data::new(state.clone()))
         .service(passport_route_auth())
         .service(passport_route_redirect());

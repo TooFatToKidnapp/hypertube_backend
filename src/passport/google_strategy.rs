@@ -8,11 +8,11 @@ use passport_strategies::strategies::GoogleStrategy;
 use serde_json::json;
 use sqlx::PgPool;
 use std::env;
-use tracing::Instrument;
 
-use crate::routes::generate_token;
-use chrono::Utc;
 use super::AppState;
+use crate::routes::generate_token;
+use tracing::Instrument;
+use chrono::Utc;
 
 pub async fn google(passport: Data<AppState>) -> HttpResponse {
     tracing::info!("Google Oauth2 called");
@@ -37,32 +37,33 @@ pub async fn authenticate_google(
         Ok(response) => {
             let res = match response {
                 PassportResponse::Profile(profile) => {
-                    tracing::info!(target: "query_span", "Got Google Profile");
+                    tracing::info!("Got Google Profile");
                     profile
-                },
+                }
                 PassportResponse::FailureRedirect(failure) => {
-                    tracing::info!("didn't get user profile. user redirected");
+                    tracing::info!("didn't get user Google profile. user redirected");
                     return HttpResponse::SeeOther()
                         .append_header((http::header::LOCATION, failure.to_string()))
-                        .finish()
+                        .finish();
                 }
             };
             res
         }
         Err(error) => {
             tracing::error!("Error: Bad Google Profile response");
-            return HttpResponse::BadRequest().body(error.to_string())},
+            return HttpResponse::BadRequest().body(error.to_string());
+        }
     };
 
     let user_email = &profile["emailAddresses"][0]["value"];
-    if user_email.as_null() == Some(()) {
+    if user_email.is_null() {
         tracing::error!("Error: user email not found in response");
         return HttpResponse::BadRequest().json(json!({
             "error": "Missing email from google payload"
         }));
     }
 
-    let user_email = user_email.to_string().replace("\"", "");
+    let user_email = user_email.to_string().replace('"', "");
     let query_result = sqlx::query!(
         r#"
             SELECT * FROM users WHERE email = $1
@@ -98,13 +99,13 @@ pub async fn authenticate_google(
             tracing::info!("Google Sign up event. user email was not found in the database");
             let id = uuid::Uuid::new_v4();
             let user_name = &profile["names"][0]["givenName"];
-            if user_name.as_null() == Some(()) {
+            if user_name.is_null() {
                 tracing::error!("Error: user name not found in response");
                 return HttpResponse::BadRequest().json(json!({
                     "error": "Missing name from google payload"
                 }));
             }
-            let user_name = user_name.to_string().replace("\"", "");
+            let user_name = user_name.to_string().replace('"', "");
             let query_res = sqlx::query!(
                 r#"
                     INSERT INTO users (id, username, email, created_at, updated_at)
