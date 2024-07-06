@@ -140,7 +140,7 @@ where
             }
         };
         let service = self.service.clone();
-        // let fut = self.service.call(req);
+
         async move {
             let query_result = sqlx::query!(
                 r#"

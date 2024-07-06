@@ -16,7 +16,7 @@ use chrono::Utc;
 use serde_json::json;
 use tracing::Instrument;
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone)]
 pub struct FortyTwoStrategy {
     pub client_id: String,
     pub client_secret: String,
