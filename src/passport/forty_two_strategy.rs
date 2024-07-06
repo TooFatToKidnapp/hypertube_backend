@@ -12,10 +12,9 @@ use std::env;
 
 use super::AppState;
 use crate::routes::generate_token;
-use tracing::Instrument;
 use chrono::Utc;
 use serde_json::json;
-
+use tracing::Instrument;
 
 #[derive(Clone, Debug)]
 pub struct FortyTwoStrategy {
@@ -117,27 +116,28 @@ pub async fn authenticate_forty_two(
     let profile = match auth.get_profile(authstate.0).await {
         Ok(response) => {
             let res = match response {
-                PassportResponse::Profile(profile) =>{
+                PassportResponse::Profile(profile) => {
                     tracing::info!("Got 42 Profile");
                     profile
-                },
+                }
                 PassportResponse::FailureRedirect(failure) => {
                     tracing::error!("Can't get 42 Profile Redirected");
                     return HttpResponse::SeeOther()
-                    .append_header((http::header::LOCATION, failure.to_string()))
-                    .finish()},
+                        .append_header((http::header::LOCATION, failure.to_string()))
+                        .finish();
+                }
             };
             res
         }
         Err(error) => {
             tracing::error!("Error: Bad 42 Profile response");
-            return HttpResponse::BadRequest().body(error.to_string())
+            return HttpResponse::BadRequest().body(error.to_string());
         }
     };
 
     if profile["email"].as_str().is_none() {
         tracing::error!("didn't find a valid email in 42 payload");
-        return  HttpResponse::BadRequest().json(json!({
+        return HttpResponse::BadRequest().json(json!({
             "error": "didn't find a valid email in 42 payload"
         }));
     }
@@ -231,7 +231,6 @@ pub async fn authenticate_forty_two(
             }))
         }
     }
-
 }
 
 pub fn generate_forty_two_passport() -> PassPortBasicClient {

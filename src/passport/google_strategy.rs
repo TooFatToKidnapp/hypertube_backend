@@ -11,8 +11,8 @@ use std::env;
 
 use super::AppState;
 use crate::routes::generate_token;
-use tracing::Instrument;
 use chrono::Utc;
+use tracing::Instrument;
 
 pub async fn google(passport: Data<AppState>) -> HttpResponse {
     tracing::info!("Google Oauth2 called");
@@ -152,7 +152,6 @@ pub async fn authenticate_google(
             }))
         }
     }
-
 }
 
 pub fn generate_google_passport() -> PassPortBasicClient {

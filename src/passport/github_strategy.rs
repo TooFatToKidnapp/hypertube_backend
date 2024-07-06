@@ -10,9 +10,9 @@ use std::env;
 
 use super::AppState;
 use crate::routes::generate_token;
-use tracing::Instrument;
 use chrono::Utc;
 use serde_json::json;
+use tracing::Instrument;
 
 pub async fn github(passport: Data<AppState>) -> HttpResponse {
     let mut auth = passport.github_passport.write().await;
@@ -63,16 +63,19 @@ pub async fn authenticate_github(
     let access_token = profile["access_token"].as_str().unwrap();
 
     let client = reqwest::Client::new();
-    let request = client.get(
-        "https://api.github.com/user/emails"
-    ).header(http::header::ACCEPT, "application/vnd.github+json")
-    .header(http::header::AUTHORIZATION, format!("Bearer {}", access_token))
-    .header(http::header::USER_AGENT, "HyperTube");
+    let request = client
+        .get("https://api.github.com/user/emails")
+        .header(http::header::ACCEPT, "application/vnd.github+json")
+        .header(
+            http::header::AUTHORIZATION,
+            format!("Bearer {}", access_token),
+        )
+        .header(http::header::USER_AGENT, "HyperTube");
 
     let response = request.send().await;
     if response.is_err() {
         tracing::error!("couldn't send request to github api");
-        return  HttpResponse::BadRequest().json(json!({
+        return HttpResponse::BadRequest().json(json!({
             "error": "couldn't send request to github api"
         }));
     }
@@ -100,8 +103,8 @@ pub async fn authenticate_github(
     for elem in parsing_result.as_ref().unwrap().as_array().unwrap().iter() {
         if elem["primary"].is_boolean() && elem["primary"].as_bool() == Some(true) {
             let email_res = elem["email"].as_str();
-            if email_res.is_some() {
-                user_email = email_res.unwrap().to_owned();
+            if let Some(email) = email_res {
+                email.clone_into(&mut user_email);
                 break;
             }
         }
