@@ -7,9 +7,15 @@ use oauth2::{Scope, TokenUrl};
 use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, StateCode};
 use passport_strategies::strategies::Strategy;
 use reqwest::Url;
+use sqlx::PgPool;
 use std::env;
 
 use super::AppState;
+use crate::routes::generate_token;
+use tracing::Instrument;
+use chrono::Utc;
+use serde_json::json;
+
 
 #[derive(Clone, Debug)]
 pub struct FortyTwoStrategy {
@@ -102,25 +108,130 @@ pub async fn forty_tow(passport: Data<AppState>) -> HttpResponse {
 pub async fn authenticate_forty_two(
     auth: Data<AppState>,
     authstate: web::Query<StateCode>,
+    connection: Data<PgPool>,
 ) -> HttpResponse {
+    let query_span = tracing::info_span!("42 Passport Event");
+
     let mut auth = auth.passport_42.write().await;
-    // The `response` is an enum. It can either be a failure_redirect or profile
-    match auth.get_profile(authstate.0).await {
-        // The profile is a json value containing the user profile, access_token and refresh_token.
+    auth.authenticate("42");
+    let profile = match auth.get_profile(authstate.0).await {
         Ok(response) => {
             let res = match response {
-                // At this point you can proceed to save the profile info in the database or use the access token or refresh token to request for more user info or some other relevant info.
-                PassportResponse::Profile(profile) => HttpResponse::Ok().json(profile),
-                // If the user canceled the authorization process, a redirect to i.e login page would be very convinient rather
-                // than displaying some `Internal server error` just to say. It may not be exactly that kind of error, but can be inclusive of others.
-                PassportResponse::FailureRedirect(failure) => HttpResponse::SeeOther()
+                PassportResponse::Profile(profile) =>{
+                    tracing::info!("Got 42 Profile");
+                    profile
+                },
+                PassportResponse::FailureRedirect(failure) => {
+                    tracing::error!("Can't get 42 Profile Redirected");
+                    return HttpResponse::SeeOther()
                     .append_header((http::header::LOCATION, failure.to_string()))
-                    .finish(),
+                    .finish()},
             };
             res
         }
-        Err(error) => HttpResponse::BadRequest().body(error.to_string()),
+        Err(error) => {
+            tracing::error!("Error: Bad 42 Profile response");
+            return HttpResponse::BadRequest().body(error.to_string())
+        }
+    };
+
+    if profile["email"].as_str().is_none() {
+        tracing::error!("didn't find a valid email in 42 payload");
+        return  HttpResponse::BadRequest().json(json!({
+            "error": "didn't find a valid email in 42 payload"
+        }));
     }
+    let user_email = profile["email"].as_str().unwrap();
+
+    let query_result = sqlx::query!(
+        r#"
+            SELECT * FROM users WHERE email = $1
+        "#,
+        user_email
+    )
+    .fetch_one(connection.get_ref())
+    .instrument(query_span.clone())
+    .await;
+
+    match query_result {
+        Ok(user) => {
+            tracing::info!("42 Log in event. user email found in the database");
+            let token_result = generate_token(user.id.to_string());
+            if token_result.is_err() {
+                tracing::error!("Failed to generate user token");
+                return HttpResponse::InternalServerError().json(json!({
+                    "error": "something went wrong"
+                }));
+            }
+            HttpResponse::Ok().json(json!({
+                "data" : {
+                    "token": token_result.unwrap(),
+                    "email": user.email,
+                    "created_at": user.created_at.to_string(),
+                    "updated_at": user.updated_at.to_string(),
+                    "username" : user.username,
+                }
+            }))
+        }
+        Err(sqlx::Error::RowNotFound) => {
+            tracing::info!("42 Sign up event. user email was not found in the database");
+            let id = uuid::Uuid::new_v4();
+            let user_name = &profile["login"];
+            if user_name.as_str().is_none() {
+                tracing::error!("Error: user name not found in response");
+                return HttpResponse::BadRequest().json(json!({
+                    "error": "Missing name from 42 payload"
+                }));
+            }
+            let user_name = user_name.as_str().unwrap();
+            let query_res = sqlx::query!(
+                r#"
+                    INSERT INTO users (id, username, email, created_at, updated_at)
+                    VALUES ($1, $2, $3, $4, $5)
+                    RETURNING *
+                "#,
+                id,
+                user_name,
+                user_email,
+                Utc::now(),
+                Utc::now(),
+            )
+            .fetch_one(connection.get_ref())
+            .instrument(query_span)
+            .await;
+            if query_res.is_err() {
+                tracing::error!("Failed to create user {:?}", query_res.unwrap_err());
+                return HttpResponse::InternalServerError().json(json!({
+                    "error": "database error"
+                }));
+            }
+            tracing::info!("42 Sign up event. user created successfully");
+            let user = query_res.unwrap();
+            let token_result = generate_token(user.id.to_string());
+            if token_result.is_err() {
+                tracing::error!("Failed to generate user token");
+                return HttpResponse::InternalServerError().json(json!({
+                    "error": "something went wrong"
+                }));
+            }
+            HttpResponse::Ok().json(json!({
+                "data" : {
+                    "token": token_result.unwrap(),
+                    "email": user.email,
+                    "created_at": user.created_at.to_string(),
+                    "updated_at": user.updated_at.to_string(),
+                    "username" : user.username,
+                }
+            }))
+        }
+        Err(err) => {
+            tracing::error!("database Error {:#?}", err);
+            HttpResponse::InternalServerError().json(json!({
+                "error": "something went wrong"
+            }))
+        }
+    }
+
 }
 
 pub fn generate_forty_two_passport() -> PassPortBasicClient {

@@ -56,14 +56,14 @@ pub async fn authenticate_google(
     };
 
     let user_email = &profile["emailAddresses"][0]["value"];
-    if user_email.is_null() {
+    if user_email.as_str().is_none() {
         tracing::error!("Error: user email not found in response");
         return HttpResponse::BadRequest().json(json!({
             "error": "Missing email from google payload"
         }));
     }
 
-    let user_email = user_email.to_string().replace('"', "");
+    let user_email = user_email.as_str().unwrap();
     let query_result = sqlx::query!(
         r#"
             SELECT * FROM users WHERE email = $1
@@ -84,7 +84,6 @@ pub async fn authenticate_google(
                     "error": "something went wrong"
                 }));
             }
-            println!("user email: {}", user.email);
             HttpResponse::Ok().json(json!({
                 "data" : {
                     "token": token_result.unwrap(),
@@ -99,13 +98,13 @@ pub async fn authenticate_google(
             tracing::info!("Google Sign up event. user email was not found in the database");
             let id = uuid::Uuid::new_v4();
             let user_name = &profile["names"][0]["givenName"];
-            if user_name.is_null() {
+            if user_name.as_str().is_none() {
                 tracing::error!("Error: user name not found in response");
                 return HttpResponse::BadRequest().json(json!({
                     "error": "Missing name from google payload"
                 }));
             }
-            let user_name = user_name.to_string().replace('"', "");
+            let user_name = user_name.as_str().unwrap();
             let query_res = sqlx::query!(
                 r#"
                     INSERT INTO users (id, username, email, created_at, updated_at)
@@ -154,7 +153,6 @@ pub async fn authenticate_google(
         }
     }
 
-    // HttpResponse::BadRequest().finish()
 }
 
 pub fn generate_google_passport() -> PassPortBasicClient {
