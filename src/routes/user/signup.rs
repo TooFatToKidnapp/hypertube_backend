@@ -1,5 +1,5 @@
 use super::util::{validate_password, validate_user_name};
-use crate::{routes::generate_token, util::ResponseMessage};
+use crate::routes::generate_token;
 use actix_web::{
     web::{Data, Json},
     HttpResponse,
@@ -86,13 +86,15 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
                     && err.message().contains("email") =>
             {
                 tracing::error!("Email already exists in the database");
-                return HttpResponse::BadRequest()
-                    .json(ResponseMessage::new("Email already exists"));
+                return HttpResponse::BadRequest().json(json!({
+                    "error": "Email already exists"
+                }));
             }
             _ => {
                 tracing::error!("Failed to create user {:?}", err);
-                return HttpResponse::InternalServerError()
-                    .json(ResponseMessage::new("Failed to create user"));
+                return HttpResponse::InternalServerError().json(json!({
+                    "error": "Failed to create user"
+                }));
             }
         },
         Ok(user) => user,

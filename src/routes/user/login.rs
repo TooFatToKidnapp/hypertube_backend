@@ -41,7 +41,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
 
     let result = sqlx::query!(
         r#"
-      SELECT * FROM users WHERE email = $1
+      SELECT * FROM users WHERE email = $1 AND password_hash IS NOT NULL
     "#,
         body.email,
     )
@@ -54,14 +54,21 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
             tracing::info!("got user form database {:#?}", user);
             user
         }
-        Err(err) => {
-            tracing::error!("Error getting user from database {}", err);
+        Err(sqlx::Error::RowNotFound) => {
+            tracing::error!("User not found in the database");
             return HttpResponse::Unauthorized().json(json!({
                 "Error": "Invalid email or password"
             }));
         }
+        Err(err) => {
+            tracing::error!("Error getting user from database {}", err);
+            return HttpResponse::InternalServerError().json(json!({
+                "Error": "something went wrong"
+            }));
+        }
     };
-    let result = PasswordHash::new(user.password_hash.as_str());
+    let password = user.password_hash.unwrap();
+    let result = PasswordHash::new(password.as_str());
     let parsed_hash = match result {
         Ok(hash) => {
             tracing::info!("parsed the hashed password");

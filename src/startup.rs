@@ -1,3 +1,4 @@
+use crate::passport::{configure_passport_service, passport_route_auth, passport_route_redirect};
 use crate::routes::hello_world::handler;
 use crate::routes::user::user_source;
 use actix_web::{
@@ -13,7 +14,6 @@ use actix_cors::Cors;
 use actix_web::http::header;
 use dotenv::dotenv;
 use std::env;
-
 fn configure_cors(frontend_url: &str) -> Cors {
     let mut cors = Cors::default();
     cors = if frontend_url == "*" {
@@ -30,14 +30,18 @@ fn configure_cors(frontend_url: &str) -> Cors {
 pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Error> {
     dotenv().ok();
     let db_pool = Data::new(db_pool);
+    let passport_state = Data::new(configure_passport_service());
+
     let frontend_url = env::var("FRONTEND_URL").expect("FRONTEND_URL must be set");
 
-    let server = HttpServer::new(move || {
+    let server: Server = HttpServer::new(move || {
         let cors = configure_cors(frontend_url.as_str());
-
         App::new()
             .wrap(cors)
             .wrap(TracingLogger::default())
+            .app_data(passport_state.clone())
+            .service(passport_route_auth())
+            .service(passport_route_redirect())
             .service(user_source(&db_pool))
             .route("/", web::get().to(handler))
             .app_data(db_pool.clone())

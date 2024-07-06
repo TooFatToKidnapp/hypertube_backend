@@ -15,3 +15,11 @@
 6. Set up a CI/CD pipeline - [√]
 
 7. Start the project...
+
+-------------------------------
+Notes:
+	- we can set up a mailing service with mailtrap
+	  we can send emails as raw strings or html
+		https://mailtrap.io/blog/rust-send-email/#How-to-send-HTML-email-with-Rust
+	- set the user hashed_password field as optional and on user log in check if a user with the given email exists and the password field in set.
+	  if the user created a account using Oauth2 passport he should not be able to login with he's email
