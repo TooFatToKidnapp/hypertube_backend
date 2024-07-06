@@ -1,4 +1,3 @@
-use actix_web::http::header;
 use actix_web::HttpResponse;
 use actix_web::{
     http,
@@ -22,12 +21,6 @@ pub async fn github(passport: Data<AppState>) -> HttpResponse {
     HttpResponse::SeeOther()
         .append_header((http::header::LOCATION, url))
         .finish()
-}
-// #[derive()]
-struct ErrorType {
-    error: String,
-    error_description: String,
-    error_uri: String
 }
 
 pub async fn authenticate_github(
@@ -61,57 +54,65 @@ pub async fn authenticate_github(
         }
     };
 
-    // return HttpResponse::Ok().json(profile);
-
-    if profile["access_token"].is_null() {
+    if profile["access_token"].as_str().is_none() {
+        tracing::error!("Didn't find access token in the response");
         return HttpResponse::BadRequest().json(json!({
-            "error": "Missing access token"
+            "error": "Missing access token in github response"
         }));
     }
     let access_token = profile["access_token"].as_str().unwrap();
-    println!("access_token [{}]", access_token);
+
     let client = reqwest::Client::new();
     let request = client.get(
         "https://api.github.com/user/emails"
     ).header(http::header::ACCEPT, "application/vnd.github+json")
     .header(http::header::AUTHORIZATION, format!("Bearer {}", access_token))
     .header(http::header::USER_AGENT, "HyperTube");
-    // .header("X-GitHub-Api-Version", "2022-11-28");
-println!("REQUEST : {:#?}", request);
-    let email_response = request.send().await.expect("Error sending response").text().await.unwrap();
-    println!("email_response {:#?}", email_response);
-    let parsing_result = serde_json::from_str::<serde_json::Value>(&email_response);
+
+    let response = request.send().await;
+    if response.is_err() {
+        tracing::error!("couldn't send request to github api");
+        return  HttpResponse::BadRequest().json(json!({
+            "error": "couldn't send request to github api"
+        }));
+    }
+    let body = response.unwrap().text().await;
+    if body.is_err() {
+        tracing::error!("couldn't get response body");
+        return HttpResponse::BadRequest().json(json!({
+            "error": "couldn't get response body"
+        }));
+    }
+    let parsing_result = serde_json::from_str::<serde_json::Value>(body.unwrap().as_str());
+    if parsing_result.as_ref().is_err() {
+        tracing::error!("Bad response body from the github api");
+        return HttpResponse::BadRequest().json(json!({
+            "error": "Bad response body from the github api"
+        }));
+    }
+    if parsing_result.as_ref().unwrap().as_array().is_none() {
+        tracing::error!("Bad response body from the github api");
+        return HttpResponse::BadRequest().json(json!({
+            "error": "Bad response body from the github api"
+        }));
+    }
     let mut user_email = String::new();
     for elem in parsing_result.as_ref().unwrap().as_array().unwrap().iter() {
-        println!("elem : {}", elem);
         if elem["primary"].is_boolean() && elem["primary"].as_bool() == Some(true) {
-            user_email = elem["email"].as_str().unwrap().to_string();
+            let email_res = elem["email"].as_str();
+            if email_res.is_some() {
+                user_email = email_res.unwrap().to_owned();
+                break;
+            }
         }
     }
-    println!("USER EMAIL {}", user_email);
-    match parsing_result {
-        Ok(data) => {
-            return HttpResponse::Ok().json(json!({
-                "res": data
-            }));
-        },
-        Err(err) => {
-            println!("err : {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
-                "err": "shit broke"
-            }));
-        }
-    }
-
-    let user_email = &profile["emailAddresses"][0]["value"];
-    if user_email.is_null() {
-        tracing::error!("Error: user email not found in response");
+    if user_email.is_empty() {
+        tracing::error!("Can't get user email from the github api");
         return HttpResponse::BadRequest().json(json!({
-            "error": "Missing email from Github payload"
+            "error": "Can't get user email from the github api"
         }));
     }
 
-    let user_email = user_email.to_string().replace('"', "");
     let query_result = sqlx::query!(
         r#"
             SELECT * FROM users WHERE email = $1
@@ -132,7 +133,6 @@ println!("REQUEST : {:#?}", request);
                     "error": "something went wrong"
                 }));
             }
-            println!("user email: {}", user.email);
             HttpResponse::Ok().json(json!({
                 "data" : {
                     "token": token_result.unwrap(),
@@ -147,13 +147,13 @@ println!("REQUEST : {:#?}", request);
             tracing::info!("Github Sign up event. user email was not found in the database");
             let id = uuid::Uuid::new_v4();
             let user_name = &profile["login"];
-            if user_name.is_null() {
+            if user_name.as_str().is_none() {
                 tracing::error!("Error: user name not found in response");
                 return HttpResponse::BadRequest().json(json!({
                     "error": "Missing name from Github payload"
                 }));
             }
-            let user_name = user_name.to_string().replace('"', "");
+            let user_name = user_name.as_str().unwrap();
             let query_res = sqlx::query!(
                 r#"
                     INSERT INTO users (id, username, email, created_at, updated_at)
@@ -202,12 +202,6 @@ println!("REQUEST : {:#?}", request);
         }
     }
 }
-
-// curl -L \
-//   -H "Accept: application/vnd.github+json" \
-//   -H "Authorization: Bearer <the access_token from the user>" \
-//   -H "X-GitHub-Api-Version: 2022-11-28" \
-//   https://api.github.com/user/emails
 
 pub fn generate_github_passport() -> PassPortBasicClient {
     let mut passport = PassPortBasicClient::default();
