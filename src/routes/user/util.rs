@@ -1,16 +1,20 @@
 use std::borrow::Cow;
 
 use actix_web::{
+    cookie::{
+        time::{Duration, OffsetDateTime},
+        Cookie, Expiration, SameSite,
+    },
     web::{self, get, post},
     Scope,
 };
-use chrono::{Duration, Utc};
-use jsonwebtoken::{encode, EncodingKey, Header};
+use chrono::Utc;
 use regex::Regex;
+use sqlx::types::Uuid;
 use sqlx::PgPool;
 use validator::ValidationError;
 
-use crate::middleware::{Authentication, Claims};
+use crate::middleware::{Authentication, User};
 
 use super::{get_user, user_login, user_signup};
 
@@ -96,13 +100,48 @@ pub fn validate_user_name(user_name: &str) -> Result<(), ValidationError> {
     Ok(())
 }
 
-pub fn generate_token(id: String) -> Result<String, jsonwebtoken::errors::Error> {
-    let exp = (Utc::now() + Duration::days(7)).timestamp() as usize;
-    let claims = Claims { id, exp };
-    let secret = std::env::var("JWT_SECRET").unwrap();
-    encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(secret.as_str().as_ref()),
+pub async fn create_session(
+    connection: &PgPool,
+    user: User,
+) -> Result<Cookie, Box<dyn std::error::Error>> {
+    let session_query_result = sqlx::query!(
+        r#"
+            INSERT INTO sessions (id, user_id, session_data, created_at, expires_at)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+        "#,
+        Uuid::new_v4(),
+        user.id,
+        serde_json::json!({
+            "username": user.username,
+            "email": user.email,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at
+        }),
+        Utc::now(),
+        Utc::now() + chrono::Duration::days(7)
     )
+    .fetch_one(connection)
+    .await;
+
+    let session_id = match session_query_result {
+        Ok(session) => {
+            tracing::info!("Session Created");
+            session.id.to_string()
+        }
+        Err(err) => {
+            tracing::error!("database error {}", err);
+            return Err(Box::new(err));
+        }
+    };
+    let cookie = Cookie::build("session", session_id)
+        .secure(true)
+        .http_only(true)
+        .same_site(SameSite::Strict)
+        .path("/")
+        .expires(Expiration::DateTime(
+            OffsetDateTime::now_utc() + Duration::days(7),
+        ))
+        .finish();
+    Ok(cookie)
 }
