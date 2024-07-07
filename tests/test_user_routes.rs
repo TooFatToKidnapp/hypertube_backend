@@ -1,7 +1,9 @@
 mod test_startup;
 use std::borrow::Borrow;
 
+use actix_web::http;
 use serde::{Deserialize, Serialize};
+use serde_json::json;
 use test_startup::*;
 
 #[derive(Clone, Serialize, Debug)]
@@ -149,5 +151,110 @@ async fn user_sign_up_test() {
         password: "Password@123",
     };
     let adder = format!("{}/user/sign-up", app.address.as_str());
-    let _ = create_temporary_user(adder.clone(), signup_body).await;
+    let _ = create_temporary_user(adder, signup_body).await;
+}
+
+#[actix_rt::test]
+async fn user_reset_password() {
+    let app = spawn_app().await;
+    let signup_body = SignUpBody {
+        email: "test@gmail.com",
+        username: "username123",
+        password: "Password@123",
+    };
+    let adder = format!("{}/user/sign-up", app.address.as_str());
+    let user_token = create_temporary_user(adder, signup_body).await;
+
+    let adder = format!("{}/user/password", app.address.as_str());
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(adder)
+        .json(&json!({
+            "old_password": "Password@123",
+            "new_password": "Example422@"
+        }))
+        .header(
+            http::header::AUTHORIZATION,
+            format!("Bearer {}", user_token),
+        )
+        .send()
+        .await
+        .expect("Failed to send request");
+    assert!(response.status().is_success());
+}
+
+#[actix_rt::test]
+async fn user_same_password_error() {
+    let app = spawn_app().await;
+    let signup_body = SignUpBody {
+        email: "test@gmail.com",
+        username: "username123",
+        password: "Password@123",
+    };
+    let adder = format!("{}/user/sign-up", app.address.as_str());
+    let user_token = create_temporary_user(adder, signup_body).await;
+
+    let adder = format!("{}/user/password", app.address.as_str());
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(adder)
+        .json(&json!({
+            "old_password": "Password@123",
+            "new_password": "Password@123"
+        }))
+        .header(
+            http::header::AUTHORIZATION,
+            format!("Bearer {}", user_token),
+        )
+        .send()
+        .await
+        .expect("Failed to send request");
+    assert!(response.status().is_client_error());
+}
+
+#[actix_rt::test]
+async fn user_invalid_password_error() {
+    let app = spawn_app().await;
+    let signup_body = SignUpBody {
+        email: "test@gmail.com",
+        username: "username123",
+        password: "Password@123",
+    };
+    let adder = format!("{}/user/sign-up", app.address.as_str());
+    let user_token = create_temporary_user(adder, signup_body).await;
+
+    let adder = format!("{}/user/password", app.address.as_str());
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(adder.clone())
+        .json(&json!({
+            "old_password": "Password@123",
+            "new_password": "xxxxxxxxxxxx"
+        }))
+        .header(
+            http::header::AUTHORIZATION,
+            format!("Bearer {}", user_token),
+        )
+        .send()
+        .await
+        .expect("Failed to send request");
+    assert!(response.status().is_client_error());
+
+    let response = client
+        .post(adder)
+        .json(&json!({
+            "old_password": "xxxxxxxxxxxx",
+            "new_password": "Example422@"
+        }))
+        .header(
+            http::header::AUTHORIZATION,
+            format!("Bearer {}", user_token),
+        )
+        .send()
+        .await
+        .expect("Failed to send request");
+    assert!(response.status().is_client_error());
 }

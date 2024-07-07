@@ -1,16 +1,19 @@
+use crate::middleware::User;
 use actix_web::{
     web::{Data, Json},
     HttpMessage, HttpRequest, HttpResponse,
 };
-use argon2::{Argon2, PasswordHash, PasswordVerifier};
+use argon2::PasswordHasher;
+use argon2::{
+    password_hash::{rand_core::OsRng, SaltString},
+    Argon2, PasswordHash, PasswordVerifier,
+};
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::PgPool;
 use std::rc::Rc;
 use tracing::Instrument;
 use validator::Validate;
-
-use crate::middleware::User;
 
 use super::util::validate_password;
 
@@ -59,6 +62,7 @@ pub async fn profile_password_reset(
             }
         }
     };
+
     let query_result = sqlx::query!(
         r#"
 			SELECT * FROM users WHERE email = $1
@@ -119,14 +123,30 @@ pub async fn profile_password_reset(
         }));
     }
 
-    let query_result = sqlx::query!(
+    let argon2 = Argon2::default();
+    let salt = SaltString::generate(&mut OsRng);
+    let password_hash_result = argon2.hash_password(body.new_password.as_bytes(), &salt);
+    let password_hash = match password_hash_result {
+        Ok(hash) => {
+            tracing::info!("New Password hashed successfully");
+            hash.to_string()
+        }
+        Err(err) => {
+            tracing::error!("Can't get new password hash {}", err);
+            return HttpResponse::InternalServerError().json(json!({
+                "error": "Can't get password hash"
+            }));
+        }
+    };
+
+    let query_result = sqlx::query(
         r#"
 				UPDATE users SET password_hash = $1 WHERE id = $2
 			"#,
-        body.new_password,
-        user.id
     )
-    .fetch_one(connection.as_ref())
+    .bind(password_hash)
+    .bind(user.id)
+    .execute(connection.as_ref())
     .instrument(query_span)
     .await;
 
