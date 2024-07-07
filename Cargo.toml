@@ -38,14 +38,7 @@ oauth2 = "4.4.2"
 [dependencies.sqlx]
 version = "0.7.4"
 default-features = false
-features = [
-	"runtime-tokio-rustls",
-	"macros",
-	"postgres",
-	"uuid",
-	"chrono",
-	"migrate",
-]
+features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "chrono", "migrate", "json"]
 
 [dev-dependencies]
 actix-rt = "2.10.0"
