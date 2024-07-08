@@ -14,6 +14,7 @@ use actix_cors::Cors;
 use actix_web::http::header;
 use dotenv::dotenv;
 use std::env;
+
 fn configure_cors(frontend_url: &str) -> Cors {
     let mut cors = Cors::default();
     cors = if frontend_url == "*" {

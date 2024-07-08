@@ -3,8 +3,9 @@ use actix_web::{
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage, HttpResponse,
 };
+
 use futures_util::{future::LocalBoxFuture, FutureExt};
-use jsonwebtoken::{decode, Algorithm, DecodingKey, Validation};
+
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use sqlx::PgPool;
@@ -25,6 +26,7 @@ impl Authentication {
     }
 }
 
+#[derive(Clone, Debug)]
 pub struct User {
     pub id: Uuid,
     pub username: String,
@@ -80,73 +82,122 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let query_span = tracing::info_span!("Authentication middleware");
-        let auth = req.headers().get(actix_web::http::header::AUTHORIZATION);
-        if auth.is_none() {
-            let http_res = HttpResponse::Unauthorized().json(json!({
-                "Error" : "Missing access token"
-            }));
-            let (http_req, _) = req.into_parts();
-            let res = ServiceResponse::new(http_req, http_res);
-            return (async move { Ok(res.map_into_right_body()) }).boxed_local();
-        }
-        let authentication_token: String = auth.unwrap().to_str().unwrap_or("").to_string();
-        let parts: Vec<&str> = authentication_token.split_ascii_whitespace().collect();
-
-        if parts.len() != 2 || (parts[0] != "Bearer" && parts[0] != "bearer") || parts[1].is_empty()
-        {
-            tracing::error!("Invalid AUTHORIZATION header",);
-            let http_res = HttpResponse::Unauthorized().json(json!({
-                "Error" : "Invalid access token"
-            }));
-            let (http_req, _) = req.into_parts();
-            let res = ServiceResponse::new(http_req, http_res);
-            return (async move { Ok(res.map_into_right_body()) }).boxed_local();
-        }
-        let authentication_token = parts[1];
-        let jwt_secret = std::env::var("JWT_SECRET").expect("JWT_SECRET must be set");
-        let token_result = decode::<Claims>(
-            authentication_token,
-            &DecodingKey::from_secret(jwt_secret.as_ref()),
-            &Validation::new(Algorithm::HS256),
-        );
-
-        let token = match token_result {
-            Ok(token) => {
-                tracing::info!("token decoded successfully");
-                token.claims
+        let session_value: String = {
+            let cookies_res = req.cookies();
+            let cookie_jar = match cookies_res {
+                Ok(cookies) => {
+                    tracing::info!("Got cookies");
+                    cookies
+                }
+                Err(_) => {
+                    drop(cookies_res);
+                    tracing::error!("No Cookies found in request");
+                    let http_res = HttpResponse::Unauthorized().json(json!({
+                        "Error" : "No Cookies found in request"
+                    }));
+                    let (http_req, _) = req.into_parts();
+                    let res = ServiceResponse::new(http_req, http_res);
+                    return (async move { Ok(res.map_into_right_body()) }).boxed_local();
+                }
+            };
+            let mut value = String::new();
+            for cookie in cookie_jar.iter() {
+                if cookie.name() == "session" {
+                    cookie.value().clone_into(&mut value);
+                    break;
+                }
             }
-            Err(_) => {
-                tracing::error!("Error decoding token");
-                let http_res = HttpResponse::Unauthorized().json(json!({
-                    "Error" : "Invalid access token"
-                }));
-                let (http_req, _) = req.into_parts();
-                let res = ServiceResponse::new(http_req, http_res);
-                return (async move { Ok(res.map_into_right_body()) }).boxed_local();
-            }
+            value
         };
+
+        if session_value.is_empty() {
+            tracing::error!("No Session Cookie found in request");
+            let http_res = HttpResponse::Unauthorized().json(json!({
+                "Error" : "No Session Cookie found in request"
+            }));
+            let (http_req, _) = req.into_parts();
+            let res = ServiceResponse::new(http_req, http_res);
+            return (async move { Ok(res.map_into_right_body()) }).boxed_local();
+        }
+        let uuid_result = Uuid::parse_str(session_value.as_str());
+        if uuid_result.is_err() {
+            tracing::error!("Invalid Cookie value");
+            let http_res = HttpResponse::Unauthorized().json(json!({
+                "Error" : "Invalid Cookie value"
+            }));
+            let (http_req, _) = req.into_parts();
+            let res = ServiceResponse::new(http_req, http_res);
+            return (async move { Ok(res.map_into_right_body()) }).boxed_local();
+        }
+        let session = uuid_result.unwrap();
         let db_connection = self.db_pool.clone();
-        let uuid_result = Uuid::parse_str(token.id.as_str());
-        let uuid = match uuid_result {
-            Ok(uuid) => uuid,
-            Err(_) => {
-                tracing::error!("Invalid uuid");
-                let http_res = HttpResponse::Unauthorized().json(json!({
-                    "Error" : "Invalid token content"
+        let service = self.service.clone();
+        async move {
+            let session_query_res = sqlx::query!(
+                r#"
+                    SELECT * FROM sessions WHERE id = $1
+                "#,
+                session
+            )
+            .fetch_one(&db_connection)
+            .instrument(query_span.clone())
+            .await;
+
+            let session = match session_query_res {
+                Ok(session) => {
+                    tracing::info!("Found session");
+                    session
+                }
+                Err(sqlx::Error::RowNotFound) => {
+                    tracing::error!("Session not found");
+                    let http_res = HttpResponse::BadRequest().json(json!({
+                        "Error" : "invalid Session"
+                    }));
+                    let (http_req, _) = req.into_parts();
+                    let response = ServiceResponse::new(http_req, http_res);
+                    return Ok(response.map_into_right_body());
+                }
+                Err(err) => {
+                    tracing::error!("Database error {}", err);
+                    let http_res = HttpResponse::InternalServerError().json(json!({
+                        "Error" : "Database Error"
+                    }));
+                    let (http_req, _) = req.into_parts();
+                    let response = ServiceResponse::new(http_req, http_res);
+                    return Ok(response.map_into_right_body());
+                }
+            };
+
+            if session.expires_at < chrono::Utc::now() {
+                tracing::info!("Session EXPIRED!");
+                let delete_res = sqlx::query("DELETE FROM sessions WHERE id = $1")
+                    .bind(session.id)
+                    .execute(&db_connection)
+                    .instrument(query_span.clone())
+                    .await;
+                if delete_res.is_err() {
+                    tracing::error!("Database error {}", delete_res.unwrap_err());
+                    let http_res = HttpResponse::InternalServerError().json(json!({
+                        "Error" : "Database Error"
+                    }));
+                    let (http_req, _) = req.into_parts();
+                    let response = ServiceResponse::new(http_req, http_res);
+                    return Ok(response.map_into_right_body());
+                }
+                tracing::error!("Session Expired");
+                let http_res = HttpResponse::BadRequest().json(json!({
+                    "Error" : "Session Expired"
                 }));
                 let (http_req, _) = req.into_parts();
-                let res = ServiceResponse::new(http_req, http_res);
-                return (async move { Ok(res.map_into_right_body()) }).boxed_local();
+                let response = ServiceResponse::new(http_req, http_res);
+                return Ok(response.map_into_right_body());
             }
-        };
-        let service = self.service.clone();
 
-        async move {
             let query_result = sqlx::query!(
                 r#"
                     SELECT * FROM users WHERE id = $1
                 "#,
-                uuid,
+                session.user_id,
             )
             .fetch_one(&db_connection)
             .instrument(query_span)
@@ -154,7 +205,7 @@ where
 
             let user = match query_result {
                 Ok(user) => {
-                    tracing::info!("got user from token {:#?}", user);
+                    tracing::info!("got user from session {:#?}", user);
                     User {
                         id: user.id,
                         username: user.username,
@@ -163,10 +214,19 @@ where
                         email: user.email,
                     }
                 }
+                Err(sqlx::Error::RowNotFound) => {
+                    tracing::error!("USER NOT FOUND IN DATABASE");
+                    let http_res = HttpResponse::NotFound().json(json!({
+                        "Error" : "user not found"
+                    }));
+                    let (http_req, _) = req.into_parts();
+                    let response = ServiceResponse::new(http_req, http_res);
+                    return Ok(response.map_into_right_body());
+                }
                 Err(err) => {
                     tracing::error!("Error getting user from database {}", err);
                     let http_res = HttpResponse::Unauthorized().json(json!({
-                        "Error" : "Invalid access token"
+                        "Error" : "database error"
                     }));
                     let (http_req, _) = req.into_parts();
                     let response = ServiceResponse::new(http_req, http_res);

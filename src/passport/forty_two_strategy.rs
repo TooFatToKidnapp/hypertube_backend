@@ -10,8 +10,10 @@ use reqwest::Url;
 use sqlx::PgPool;
 use std::env;
 
+use crate::middleware::User;
+use crate::routes::create_session;
+
 use super::AppState;
-use crate::routes::generate_token;
 use chrono::Utc;
 use serde_json::json;
 use tracing::Instrument;
@@ -156,22 +158,34 @@ pub async fn authenticate_forty_two(
     match query_result {
         Ok(user) => {
             tracing::info!("42 Log in event. user email found in the database");
-            let token_result = generate_token(user.id.to_string());
-            if token_result.is_err() {
-                tracing::error!("Failed to generate user token");
+            let user = User {
+                id: user.id,
+                email: user.email,
+                created_at: user.created_at.to_string(),
+                updated_at: user.updated_at.to_string(),
+                username: user.username,
+            };
+            let session_result = create_session(connection.as_ref(), user.clone()).await;
+            if session_result.is_err() {
+                tracing::error!(
+                    "Failed to generate user session  {}",
+                    session_result.unwrap_err()
+                );
                 return HttpResponse::InternalServerError().json(json!({
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().json(json!({
-                "data" : {
-                    "token": token_result.unwrap(),
-                    "email": user.email,
-                    "created_at": user.created_at.to_string(),
-                    "updated_at": user.updated_at.to_string(),
-                    "username" : user.username,
-                }
-            }))
+            HttpResponse::Ok()
+                .cookie(session_result.unwrap())
+                .json(json!({
+                    "data" : {
+                        "id": user.id.to_string(),
+                        "email": user.email,
+                        "created_at": user.created_at.to_string(),
+                        "updated_at": user.updated_at.to_string(),
+                        "username" : user.username,
+                    }
+                }))
         }
         Err(sqlx::Error::RowNotFound) => {
             tracing::info!("42 Sign up event. user email was not found in the database");
@@ -205,24 +219,36 @@ pub async fn authenticate_forty_two(
                     "error": "database error"
                 }));
             }
+            let user_res = query_res.unwrap();
             tracing::info!("42 Sign up event. user created successfully");
-            let user = query_res.unwrap();
-            let token_result = generate_token(user.id.to_string());
-            if token_result.is_err() {
-                tracing::error!("Failed to generate user token");
+            let user = User {
+                id: user_res.id,
+                email: user_res.email,
+                created_at: user_res.created_at.to_string(),
+                updated_at: user_res.updated_at.to_string(),
+                username: user_res.username,
+            };
+            let session_result = create_session(connection.as_ref(), user.clone()).await;
+            if session_result.is_err() {
+                tracing::error!(
+                    "Failed to generate user session  {}",
+                    session_result.unwrap_err()
+                );
                 return HttpResponse::InternalServerError().json(json!({
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().json(json!({
-                "data" : {
-                    "token": token_result.unwrap(),
-                    "email": user.email,
-                    "created_at": user.created_at.to_string(),
-                    "updated_at": user.updated_at.to_string(),
-                    "username" : user.username,
-                }
-            }))
+            HttpResponse::Ok()
+                .cookie(session_result.unwrap())
+                .json(json!({
+                    "data" : {
+                        "id": user.id.to_string(),
+                        "email": user.email,
+                        "created_at": user.created_at.to_string(),
+                        "updated_at": user.updated_at.to_string(),
+                        "username" : user.username,
+                    }
+                }))
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);
