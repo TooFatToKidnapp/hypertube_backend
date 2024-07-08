@@ -1,9 +1,11 @@
 use actix_web::{
     body::EitherBody,
+    cookie::time::{Date, Month, OffsetDateTime, Time},
     dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform},
     Error, HttpMessage, HttpResponse,
 };
 
+use chrono::Utc;
 use futures_util::{future::LocalBoxFuture, FutureExt};
 
 use serde::{Deserialize, Serialize};
@@ -82,7 +84,11 @@ where
 
     fn call(&self, req: ServiceRequest) -> Self::Future {
         let query_span = tracing::info_span!("Authentication middleware");
-        let session_value = {
+        let mut cookie_expiration_date = OffsetDateTime::new_utc(
+            Date::from_calendar_date(2024, Month::January, 1).unwrap(),
+            Time::from_hms_nano(12, 59, 59, 500_000_000).unwrap(),
+        );
+        let session_value: String = {
             let cookies_res = req.cookies();
             let cookie_jar = match cookies_res {
                 Ok(cookies) => {
@@ -103,7 +109,13 @@ where
             let mut value = String::new();
             for cookie in cookie_jar.iter() {
                 if cookie.name() == "session" {
+                    println!("found session cookie {:#?}", cookie);
                     cookie.value().clone_into(&mut value);
+                    let cookie_date = cookie.expires_datetime();
+                    println!("cookie_date {:#?}", cookie_date);
+                    if cookie_date.is_some() {
+                        cookie_date.unwrap().clone_into(&mut cookie_expiration_date);
+                    }
                 }
             }
             value
@@ -167,7 +179,10 @@ where
                 }
             };
 
-            if session.expires_at < chrono::Utc::now() {
+            if session.expires_at < chrono::Utc::now()
+                || cookie_expiration_date < OffsetDateTime::now_utc()
+            {
+                println!("COOKIE IS EXPIERD {:#?}", cookie_expiration_date);
                 tracing::info!("Session EXPIRED!");
                 let delete_res = sqlx::query("DELETE FROM sessions WHERE id = $1")
                     .bind(session.id)

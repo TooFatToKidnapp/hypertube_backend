@@ -30,6 +30,7 @@ pub struct CreateUserRequest {
 }
 
 pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>) -> HttpResponse {
+    let query_span = tracing::info_span!("Saving new user details in the database", ?body);
     tracing::info!("Got request body: {:#?}", body);
     let is_valid = body.validate();
     if let Err(error) = is_valid {
@@ -46,7 +47,6 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
         }
         return HttpResponse::BadRequest().finish();
     }
-    let query_span = tracing::info_span!("Saving new user details in the database", ?body);
     let argon2 = Argon2::default();
     let salt = SaltString::generate(&mut OsRng);
     let password_hash = argon2.hash_password(body.password.as_bytes(), &salt);
@@ -98,12 +98,26 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
                     .contains("duplicate key value violates unique constraint")
                     && err.message().contains("email") =>
             {
+                let res = transaction.rollback().await;
+                if res.is_err() {
+                    tracing::error!("failed to rollback changes in the database");
+                    return HttpResponse::InternalServerError().json(json!({
+                        "error": "failed to rollback changes in the database"
+                    }));
+                }
                 tracing::error!("Email already exists in the database");
                 return HttpResponse::BadRequest().json(json!({
                     "error": "Email already exists"
                 }));
             }
             _ => {
+                let res = transaction.rollback().await;
+                if res.is_err() {
+                    tracing::error!("failed to rollback changes in the database");
+                    return HttpResponse::InternalServerError().json(json!({
+                        "error": "failed to rollback changes in the database"
+                    }));
+                }
                 tracing::error!("Failed to create user {:?}", err);
                 return HttpResponse::InternalServerError().json(json!({
                     "error": "Failed to create user"
