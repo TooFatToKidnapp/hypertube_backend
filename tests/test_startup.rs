@@ -89,13 +89,13 @@ pub async fn spawn_app() -> TestApp {
     let port = listener.local_addr().unwrap().port();
     let mut configuration =
         get_configuration("test_configuration").expect("Failed to read configuration file");
-    println!("configuration {:?}", configuration);
     let parent_db_name = configuration.database.database_name.clone();
     configuration.database.database_name = Uuid::new_v4().to_string();
     let connection_pool = configure_database(&configuration, &parent_db_name.to_string()).await;
     sqlx::migrate!("./migrations")
-    .run(&connection_pool)
-    .await.unwrap();
+        .run(&connection_pool)
+        .await
+        .unwrap();
     let server = hypertube_backend::startup::run_server(listener, connection_pool.clone())
         .expect("Failed to bind address");
     let _ = tokio::spawn(server);
