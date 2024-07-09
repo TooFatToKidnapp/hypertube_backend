@@ -80,6 +80,9 @@ pub async fn authenticate_google(
             tracing::info!("Google Log in event. user email found in the database");
             let user = User {
                 id: user.id,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                image_url: user.profile_picture_url,
                 email: user.email,
                 created_at: user.created_at.to_string(),
                 updated_at: user.updated_at.to_string(),
@@ -101,6 +104,9 @@ pub async fn authenticate_google(
                     "data" : {
                         "id": user.id.to_string(),
                         "email": user.email,
+                        "first_name": user.first_name,
+                        "image_url": user.image_url,
+                        "last_name": user.last_name,
                         "created_at": user.created_at.to_string(),
                         "updated_at": user.updated_at.to_string(),
                         "username" : user.username,
@@ -143,6 +149,9 @@ pub async fn authenticate_google(
             let user_rec = query_res.unwrap();
             let user = User {
                 id: user_rec.id,
+                first_name: user_rec.first_name,
+                last_name: user_rec.last_name,
+                image_url: user_rec.profile_picture_url,
                 email: user_rec.email,
                 created_at: user_rec.created_at.to_string(),
                 updated_at: user_rec.updated_at.to_string(),
@@ -164,8 +173,11 @@ pub async fn authenticate_google(
                     "data" : {
                         "id": user.id.to_string(),
                         "email": user.email,
-                        "created_at": user.created_at,
-                        "updated_at": user.updated_at,
+                        "first_name": user.first_name,
+                        "image_url": user.image_url,
+                        "last_name": user.last_name,
+                        "created_at": user.created_at.to_string(),
+                        "updated_at": user.updated_at.to_string(),
                         "username" : user.username,
                     }
                 }))

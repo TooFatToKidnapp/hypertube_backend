@@ -100,6 +100,61 @@ pub fn validate_user_name(user_name: &str) -> Result<(), ValidationError> {
     Ok(())
 }
 
+pub fn validate_user_first_name(first_name: &str) -> Result<(), ValidationError> {
+    if first_name.len() > 50 {
+        return Err(ValidationError::new("User first name length error")
+            .with_message(Cow::from("User first name must be less then 50 characters")));
+    }
+    if first_name.is_empty() {
+        return Err(ValidationError::new("User first name length error")
+            .with_message(Cow::from("User first name can't be empty")));
+    }
+    if first_name.trim().is_empty() {
+        return Err(
+            ValidationError::new("User first name content error").with_message(Cow::from(
+                "User first name must contain at least 1 non-whitespace character",
+            )),
+        );
+    }
+    if first_name
+        .chars()
+        .any(|c| FORBIDDEN_CHARACTERS.contains(&c))
+    {
+        return Err(
+            ValidationError::new("User first name content error").with_message(Cow::from(
+                "User first name cannot contain any of the following characters [/, (, ), \", <, >, \\, {, }, ']",
+            )),
+        );
+    }
+    Ok(())
+}
+
+pub fn validate_user_last_name(last_name: &str) -> Result<(), ValidationError> {
+    if last_name.len() > 50 {
+        return Err(ValidationError::new("User last name length error")
+            .with_message(Cow::from("User last name must be less then 50 characters")));
+    }
+    if last_name.is_empty() {
+        return Err(ValidationError::new("User last name length error")
+            .with_message(Cow::from("User last name can't be empty")));
+    }
+    if last_name.trim().is_empty() {
+        return Err(
+            ValidationError::new("User last name content error").with_message(Cow::from(
+                "User last name must contain at least 1 non-whitespace character",
+            )),
+        );
+    }
+    if last_name.chars().any(|c| FORBIDDEN_CHARACTERS.contains(&c)) {
+        return Err(
+            ValidationError::new("User last name content error").with_message(Cow::from(
+                "User last name cannot contain any of the following characters [/, (, ), \", <, >, \\, {, }, ']",
+            )),
+        );
+    }
+    Ok(())
+}
+
 pub async fn create_session(
     connection: &PgPool,
     user: User,
@@ -113,6 +168,8 @@ pub async fn create_session(
         Uuid::new_v4(),
         user.id,
         serde_json::json!({
+            "first_name": user.first_name,
+            "last_name": user.last_name,
             "username": user.username,
             "email": user.email,
             "created_at": user.created_at,

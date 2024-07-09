@@ -9,6 +9,8 @@ use test_startup::*;
 #[derive(Clone, Serialize, Debug)]
 struct SignUpBody<'a> {
     email: &'a str,
+    first_name: &'a str,
+    last_name: &'a str,
     username: &'a str,
     password: &'a str,
 }
@@ -17,6 +19,9 @@ struct SignUpBody<'a> {
 struct SignUpResponse {
     email: String,
     created_at: String,
+    first_name: Option<String>,
+    last_name: Option<String>,
+    image_url: Option<String>,
     updated_at: String,
     username: String,
 }
@@ -25,6 +30,9 @@ struct SignUpResponse {
 struct UserInfoResponse {
     id: String,
     email: String,
+    image_url: Option<String>,
+    first_name: Option<String>,
+    last_name: Option<String>,
     username: String,
     created_at: String,
     updated_at: String,
@@ -66,6 +74,8 @@ async fn get_user_with_invalid_cookie() {
     let app = spawn_app().await;
     let server_address = format!("{}/user", app.address.as_str());
     let body = SignUpBody {
+        first_name: "test first name",
+        last_name: "test last name",
         email: "test@gmail.com",
         username: "username123",
         password: "Password@123",
@@ -88,6 +98,8 @@ async fn get_user_test() {
     let app = spawn_app().await;
     let server_address = format!("{}/user", app.address.as_str());
     let body = SignUpBody {
+        first_name: "test first name",
+        last_name: "test last name",
         email: "test@gmail.com",
         username: "username123",
         password: "Password@123",
@@ -118,6 +130,8 @@ async fn test_user_already_exists() {
     let app = spawn_app().await;
     let client = reqwest::Client::new();
     let body = SignUpBody {
+        first_name: "test first name",
+        last_name: "test last name",
         email: "test@gmail.com",
         username: "username123",
         password: "Password@123",
@@ -140,6 +154,8 @@ async fn user_login_test() {
     let app = spawn_app().await;
     let client = reqwest::Client::new();
     let signup_body = SignUpBody {
+        first_name: "test first name",
+        last_name: "test last name",
         email: "test@gmail.com",
         username: "username123",
         password: "Password@123",
@@ -189,6 +205,8 @@ async fn user_login_test() {
 async fn user_sign_up_test() {
     let app = spawn_app().await;
     let signup_body = SignUpBody {
+        first_name: "test first name",
+        last_name: "test last name",
         email: "test@gmail.com",
         username: "username123",
         password: "Password@123",

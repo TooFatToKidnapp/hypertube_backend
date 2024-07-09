@@ -29,6 +29,9 @@ impl Authentication {
 #[derive(Clone, Debug)]
 pub struct User {
     pub id: Uuid,
+    pub first_name: Option<String>,
+    pub last_name: Option<String>,
+    pub image_url: Option<String>,
     pub username: String,
     pub email: String,
     pub created_at: String,
@@ -208,6 +211,9 @@ where
                     tracing::info!("got user from session {:#?}", user);
                     User {
                         id: user.id,
+                        first_name: user.first_name,
+                        last_name: user.last_name,
+                        image_url: user.profile_picture_url,
                         username: user.username,
                         created_at: user.created_at.to_string(),
                         updated_at: user.updated_at.to_string(),
