@@ -35,6 +35,17 @@ impl Drop for TestApp {
                 let mut connection: PgConnection = PgConnection::connect(connection_url.as_str())
                     .await
                     .expect("Failed to connect to Postgres for cleanup");
+                let terminate_sessions = format!(
+                    r#"SELECT pg_terminate_backend(pg_stat_activity.pid)
+                    FROM pg_stat_activity
+                    WHERE pg_stat_activity.datname = '{}'
+                    AND pid <> pg_backend_pid();"#,
+                    db_name
+                );
+                connection
+                    .execute(terminate_sessions.as_str())
+                    .await
+                    .expect("Failed to terminate other sessions.");
                 connection
                     .execute(format!(r#"DROP DATABASE "{}""#, db_name).as_str())
                     .await
@@ -81,6 +92,10 @@ pub async fn spawn_app() -> TestApp {
     let parent_db_name = configuration.database.database_name.clone();
     configuration.database.database_name = Uuid::new_v4().to_string();
     let connection_pool = configure_database(&configuration, &parent_db_name.to_string()).await;
+    sqlx::migrate!("./migrations")
+        .run(&connection_pool)
+        .await
+        .unwrap();
     let server = hypertube_backend::startup::run_server(listener, connection_pool.clone())
         .expect("Failed to bind address");
     let _ = tokio::spawn(server);

@@ -1,4 +1,4 @@
-use crate::routes::generate_token;
+use crate::{middleware::User, routes::create_session};
 
 use super::util::validate_password;
 use actix_web::{
@@ -94,26 +94,37 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
     };
     tracing::info!("Password is correct");
 
-    let token_result = generate_token(user.id.to_string());
-    match token_result {
-        Ok(token) => {
-            tracing::info!("successful Login");
-            HttpResponse::Ok().json(json!({
-                "data" : {
-                    "id": user.id.to_string(),
-                    "email": user.email,
-                    "username": user.username,
-                    "created_at": user.created_at.to_string(),
-                    "updated_at": user.updated_at.to_string(),
-                    "token": token
-                }
-            }))
-        }
-        Err(_) => {
-            tracing::error!("Error Generating token");
-            HttpResponse::Unauthorized().json(json!({
-                "Error": "Something went wrong"
-            }))
-        }
+    let user = User {
+        id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        image_url: user.profile_picture_url,
+        email: user.email,
+        created_at: user.created_at.to_string(),
+        updated_at: user.updated_at.to_string(),
+        username: user.username,
+    };
+    let session_result = create_session(connection.as_ref(), user.clone()).await;
+    if session_result.is_err() {
+        tracing::error!(
+            "Failed to generate user session  {}",
+            session_result.unwrap_err()
+        );
+        return HttpResponse::InternalServerError().json(json!({
+            "error": "something went wrong"
+        }));
     }
+    HttpResponse::Ok()
+        .cookie(session_result.unwrap())
+        .json(json!({
+            "data" : {
+                "id": user.id.to_string(),
+                "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
+                "created_at": user.created_at.to_string(),
+                "updated_at": user.updated_at.to_string(),
+                "username" : user.username,
+            }
+        }))
 }

@@ -10,8 +10,10 @@ use reqwest::Url;
 use sqlx::PgPool;
 use std::env;
 
+use crate::middleware::User;
+use crate::routes::create_session;
+
 use super::AppState;
-use crate::routes::generate_token;
 use chrono::Utc;
 use serde_json::json;
 use tracing::Instrument;
@@ -134,6 +136,21 @@ pub async fn authenticate_forty_two(
             return HttpResponse::BadRequest().body(error.to_string());
         }
     };
+    if profile["first_name"].as_str().is_none() {
+        tracing::error!("didn't find a valid first_name in 42 payload");
+        return HttpResponse::BadRequest().json(json!({
+            "error": "didn't find a valid first_name in 42 payload"
+        }));
+    }
+    let first_name = profile["first_name"].as_str().unwrap();
+
+    if profile["last_name"].as_str().is_none() {
+        tracing::error!("didn't find a valid last_name in 42 payload");
+        return HttpResponse::BadRequest().json(json!({
+            "error": "didn't find a valid last_name in 42 payload"
+        }));
+    }
+    let last_name = profile["last_name"].as_str().unwrap();
 
     if profile["email"].as_str().is_none() {
         tracing::error!("didn't find a valid email in 42 payload");
@@ -156,22 +173,40 @@ pub async fn authenticate_forty_two(
     match query_result {
         Ok(user) => {
             tracing::info!("42 Log in event. user email found in the database");
-            let token_result = generate_token(user.id.to_string());
-            if token_result.is_err() {
-                tracing::error!("Failed to generate user token");
+            let user = User {
+                id: user.id,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                image_url: user.profile_picture_url,
+                email: user.email,
+                created_at: user.created_at.to_string(),
+                updated_at: user.updated_at.to_string(),
+                username: user.username,
+            };
+            let session_result = create_session(connection.as_ref(), user.clone()).await;
+            if session_result.is_err() {
+                tracing::error!(
+                    "Failed to generate user session  {}",
+                    session_result.unwrap_err()
+                );
                 return HttpResponse::InternalServerError().json(json!({
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().json(json!({
-                "data" : {
-                    "token": token_result.unwrap(),
-                    "email": user.email,
-                    "created_at": user.created_at.to_string(),
-                    "updated_at": user.updated_at.to_string(),
-                    "username" : user.username,
-                }
-            }))
+            HttpResponse::Ok()
+                .cookie(session_result.unwrap())
+                .json(json!({
+                    "data" : {
+                        "id": user.id.to_string(),
+                        "email": user.email,
+                        "first_name": user.first_name,
+                        "last_name": user.last_name,
+                        "image_url": user.image_url,
+                        "created_at": user.created_at.to_string(),
+                        "updated_at": user.updated_at.to_string(),
+                        "username" : user.username,
+                    }
+                }))
         }
         Err(sqlx::Error::RowNotFound) => {
             tracing::info!("42 Sign up event. user email was not found in the database");
@@ -184,15 +219,17 @@ pub async fn authenticate_forty_two(
                 }));
             }
             let user_name = user_name.as_str().unwrap();
-            let query_res = sqlx::query!(
+            let query_res =   sqlx::query!(
                 r#"
-                    INSERT INTO users (id, username, email, created_at, updated_at)
-                    VALUES ($1, $2, $3, $4, $5)
+                    INSERT INTO users (id, username, email, first_name, last_name, created_at, updated_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
                     RETURNING *
                 "#,
                 id,
                 user_name,
                 user_email,
+                first_name,
+                last_name,
                 Utc::now(),
                 Utc::now(),
             )
@@ -205,24 +242,42 @@ pub async fn authenticate_forty_two(
                     "error": "database error"
                 }));
             }
+            let user_res = query_res.unwrap();
             tracing::info!("42 Sign up event. user created successfully");
-            let user = query_res.unwrap();
-            let token_result = generate_token(user.id.to_string());
-            if token_result.is_err() {
-                tracing::error!("Failed to generate user token");
+            let user = User {
+                id: user_res.id,
+                first_name: user_res.first_name,
+                last_name: user_res.last_name,
+                image_url: user_res.profile_picture_url,
+                email: user_res.email,
+                created_at: user_res.created_at.to_string(),
+                updated_at: user_res.updated_at.to_string(),
+                username: user_res.username,
+            };
+            let session_result = create_session(connection.as_ref(), user.clone()).await;
+            if session_result.is_err() {
+                tracing::error!(
+                    "Failed to generate user session  {}",
+                    session_result.unwrap_err()
+                );
                 return HttpResponse::InternalServerError().json(json!({
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().json(json!({
-                "data" : {
-                    "token": token_result.unwrap(),
-                    "email": user.email,
-                    "created_at": user.created_at.to_string(),
-                    "updated_at": user.updated_at.to_string(),
-                    "username" : user.username,
-                }
-            }))
+            HttpResponse::Ok()
+                .cookie(session_result.unwrap())
+                .json(json!({
+                    "data" : {
+                        "id": user.id.to_string(),
+                        "email": user.email,
+                        "first_name": user.first_name,
+                        "image_url": user.image_url,
+                        "last_name": user.last_name,
+                        "created_at": user.created_at.to_string(),
+                        "updated_at": user.updated_at.to_string(),
+                        "username" : user.username,
+                    }
+                }))
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);

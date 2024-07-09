@@ -94,8 +94,21 @@ jobs:
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
+            set -e
             cd /root/hypertube_backend
+            echo "Pulling latest code..."
             git pull origin main
+            echo "Setting up Rust environment..."
+            if [ ! -d "$HOME/.cargo" ]; then
+                echo "Installing Rust and Cargo..."
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            fi
+            source $HOME/.cargo/env
+            export PATH="$HOME/.cargo/bin:$PATH"
+            echo "Building project..."
             cargo build --release
+            echo "Copying configuration..."
             cp /root/hypertube_backend/configuration.json /root/hypertube_backend/target/release/configuration.json
-            systemctl restart hypertube_backend.service
+            echo "Restarting service..."
+            sudo systemctl restart hypertube_backend.service
+            echo "Deployment finished"

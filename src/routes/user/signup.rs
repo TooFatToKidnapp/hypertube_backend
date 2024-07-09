@@ -1,6 +1,10 @@
-use super::util::{validate_password, validate_user_name};
-use crate::routes::generate_token;
+use super::util::{
+    validate_password, validate_user_first_name, validate_user_last_name, validate_user_name,
+};
+use actix_web::cookie::time::{Duration, OffsetDateTime};
+use actix_web::cookie::Cookie;
 use actix_web::{
+    cookie::{Expiration, SameSite},
     web::{Data, Json},
     HttpResponse,
 };
@@ -19,6 +23,10 @@ use validator::Validate;
 
 #[derive(Deserialize, Debug, Validate)]
 pub struct CreateUserRequest {
+    #[validate(custom(function = "validate_user_first_name"))]
+    first_name: String,
+    #[validate(custom(function = "validate_user_last_name"))]
+    last_name: String,
     #[validate(custom(function = "validate_user_name"))]
     username: String,
     #[validate(email(message = "Not a valid email"))]
@@ -28,6 +36,7 @@ pub struct CreateUserRequest {
 }
 
 pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>) -> HttpResponse {
+    let query_span = tracing::info_span!("Saving new user details in the database", ?body);
     tracing::info!("Got request body: {:#?}", body);
     let is_valid = body.validate();
     if let Err(error) = is_valid {
@@ -44,7 +53,6 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
         }
         return HttpResponse::BadRequest().finish();
     }
-    let query_span = tracing::info_span!("Saving new user details in the database", ?body);
     let argon2 = Argon2::default();
     let salt = SaltString::generate(&mut OsRng);
     let password_hash = argon2.hash_password(body.password.as_bytes(), &salt);
@@ -59,22 +67,35 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
             }));
         }
     };
+
+    let transaction_result = connection.begin().await;
+    let mut transaction = match transaction_result {
+        Ok(transaction) => transaction,
+        Err(e) => {
+            return HttpResponse::InternalServerError().json(json!({
+                "Error": e.to_string()
+            }));
+        }
+    };
+
     let user_id = Uuid::new_v4();
     let query_result = sqlx::query!(
         r#"
-			INSERT INTO users (id, username, email, password_hash, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6)
+			INSERT INTO users (id, username, email, first_name, last_name, password_hash, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING *
 		"#,
         user_id,
         body.username,
         body.email,
+        body.first_name,
+        body.last_name,
         password_hash,
         Utc::now(),
         Utc::now()
     )
-    .fetch_one(connection.get_ref())
-    .instrument(query_span)
+    .fetch_one(&mut *transaction)
+    .instrument(query_span.clone())
     .await;
 
     let user = match query_result {
@@ -85,12 +106,26 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
                     .contains("duplicate key value violates unique constraint")
                     && err.message().contains("email") =>
             {
+                let res = transaction.rollback().await;
+                if res.is_err() {
+                    tracing::error!("failed to rollback changes in the database");
+                    return HttpResponse::InternalServerError().json(json!({
+                        "error": "failed to rollback changes in the database"
+                    }));
+                }
                 tracing::error!("Email already exists in the database");
                 return HttpResponse::BadRequest().json(json!({
                     "error": "Email already exists"
                 }));
             }
             _ => {
+                let res = transaction.rollback().await;
+                if res.is_err() {
+                    tracing::error!("failed to rollback changes in the database");
+                    return HttpResponse::InternalServerError().json(json!({
+                        "error": "failed to rollback changes in the database"
+                    }));
+                }
                 tracing::error!("Failed to create user {:?}", err);
                 return HttpResponse::InternalServerError().json(json!({
                     "error": "Failed to create user"
@@ -100,27 +135,74 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
         Ok(user) => user,
     };
 
-    tracing::info!("Generating user token");
+    let session_query_result = sqlx::query!(
+        r#"
+            INSERT INTO sessions (id, user_id, session_data, created_at, expires_at)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING *
+        "#,
+        Uuid::new_v4(),
+        user_id,
+        serde_json::json!({
+            "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "created_at": user.created_at,
+            "updated_at": user.updated_at
+        }),
+        Utc::now(),
+        Utc::now() + chrono::Duration::days(7)
+    )
+    .fetch_one(&mut *transaction)
+    .instrument(query_span.clone())
+    .await;
+    let session_id = match session_query_result {
+        Ok(session) => {
+            tracing::info!("Session Created");
+            let res = transaction.commit().await;
+            if res.is_err() {
+                tracing::error!("failed to write changes to the database");
+                return HttpResponse::InternalServerError().json(json!({
+                    "error": "failed to write changes to the database"
+                }));
+            }
+            session.id.to_string()
+        }
+        Err(err) => {
+            let res = transaction.rollback().await;
+            if res.is_err() {
+                tracing::error!("failed to rollback changes in the database");
+                return HttpResponse::InternalServerError().json(json!({
+                    "error": "failed to rollback changes in the database"
+                }));
+            }
+            tracing::error!("database error {}", err);
+            return HttpResponse::InternalServerError().json(json!({
+                "error": "database error"
+            }));
+        }
+    };
 
-    let token_result = generate_token(user_id.to_string());
-    match token_result {
-        Ok(token) => {
-            tracing::info!("successful Login");
-            HttpResponse::Ok().json(json!({
-                "data" : {
-                    "token": token,
-                    "email": user.email,
-                    "created_at": user.created_at.to_string(),
-                    "updated_at": user.updated_at.to_string(),
-                    "username" : user.username,
-                }
-            }))
+    let cookie = Cookie::build("session", session_id)
+        .secure(true)
+        .http_only(true)
+        .same_site(SameSite::Strict)
+        .path("/")
+        .expires(Expiration::DateTime(
+            OffsetDateTime::now_utc() + Duration::days(7),
+        ))
+        .finish();
+
+    tracing::info!("successful Login");
+    HttpResponse::Ok().cookie(cookie).json(json!({
+        "data" : {
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "created_at": user.created_at.to_string(),
+            "updated_at": user.updated_at.to_string(),
+            "username" : user.username,
         }
-        Err(_) => {
-            tracing::error!("Error Generating token");
-            HttpResponse::Unauthorized().json(json!({
-                "Error": "Something went wrong"
-            }))
-        }
-    }
+    }))
 }

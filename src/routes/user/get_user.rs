@@ -13,10 +13,14 @@ pub async fn get_user(req: HttpRequest) -> HttpResponse {
             tracing::info!("sending user info");
             HttpResponse::Ok().json(json!({
                 "data" : {
+                    "id": user.id.to_string(),
                     "email": user.email,
                     "username": user.username,
                     "created_at": user.created_at,
-                    "updated_at": user.updated_at
+                    "updated_at": user.updated_at,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "image_url": user.image_url,
                 }
             }))
         }

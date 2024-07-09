@@ -10,7 +10,8 @@ use sqlx::PgPool;
 use std::env;
 
 use super::AppState;
-use crate::routes::generate_token;
+use crate::middleware::User;
+use crate::routes::create_session;
 use chrono::Utc;
 use tracing::Instrument;
 
@@ -77,22 +78,40 @@ pub async fn authenticate_google(
     match query_result {
         Ok(user) => {
             tracing::info!("Google Log in event. user email found in the database");
-            let token_result = generate_token(user.id.to_string());
-            if token_result.is_err() {
-                tracing::error!("Failed to generate user token");
+            let user = User {
+                id: user.id,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                image_url: user.profile_picture_url,
+                email: user.email,
+                created_at: user.created_at.to_string(),
+                updated_at: user.updated_at.to_string(),
+                username: user.username,
+            };
+            let session_result = create_session(connection.as_ref(), user.clone()).await;
+            if session_result.is_err() {
+                tracing::error!(
+                    "Failed to generate user session  {}",
+                    session_result.unwrap_err()
+                );
                 return HttpResponse::InternalServerError().json(json!({
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().json(json!({
-                "data" : {
-                    "token": token_result.unwrap(),
-                    "email": user.email,
-                    "created_at": user.created_at.to_string(),
-                    "updated_at": user.updated_at.to_string(),
-                    "username" : user.username,
-                }
-            }))
+            HttpResponse::Ok()
+                .cookie(session_result.unwrap())
+                .json(json!({
+                    "data" : {
+                        "id": user.id.to_string(),
+                        "email": user.email,
+                        "first_name": user.first_name,
+                        "image_url": user.image_url,
+                        "last_name": user.last_name,
+                        "created_at": user.created_at.to_string(),
+                        "updated_at": user.updated_at.to_string(),
+                        "username" : user.username,
+                    }
+                }))
         }
         Err(sqlx::Error::RowNotFound) => {
             tracing::info!("Google Sign up event. user email was not found in the database");
@@ -127,23 +146,41 @@ pub async fn authenticate_google(
                 }));
             }
             tracing::info!("Google Sign up event. user created successfully");
-            let user = query_res.unwrap();
-            let token_result = generate_token(user.id.to_string());
-            if token_result.is_err() {
-                tracing::error!("Failed to generate user token");
+            let user_rec = query_res.unwrap();
+            let user = User {
+                id: user_rec.id,
+                first_name: user_rec.first_name,
+                last_name: user_rec.last_name,
+                image_url: user_rec.profile_picture_url,
+                email: user_rec.email,
+                created_at: user_rec.created_at.to_string(),
+                updated_at: user_rec.updated_at.to_string(),
+                username: user_rec.username,
+            };
+            let session_result = create_session(connection.as_ref(), user.clone()).await;
+            if session_result.is_err() {
+                tracing::error!(
+                    "Failed to generate user session  {}",
+                    session_result.unwrap_err()
+                );
                 return HttpResponse::InternalServerError().json(json!({
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().json(json!({
-                "data" : {
-                    "token": token_result.unwrap(),
-                    "email": user.email,
-                    "created_at": user.created_at.to_string(),
-                    "updated_at": user.updated_at.to_string(),
-                    "username" : user.username,
-                }
-            }))
+            HttpResponse::Ok()
+                .cookie(session_result.unwrap())
+                .json(json!({
+                    "data" : {
+                        "id": user.id.to_string(),
+                        "email": user.email,
+                        "first_name": user.first_name,
+                        "image_url": user.image_url,
+                        "last_name": user.last_name,
+                        "created_at": user.created_at.to_string(),
+                        "updated_at": user.updated_at.to_string(),
+                        "username" : user.username,
+                    }
+                }))
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);
