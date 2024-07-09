@@ -1,6 +1,4 @@
 use crate::{middleware::User, routes::create_session};
-
-use super::util::validate_password;
 use actix_web::{
     web::{Data, Json},
     HttpResponse,
@@ -16,7 +14,6 @@ use validator::Validate;
 pub struct UserData {
     #[validate(email(message = "Not a valid email"))]
     pub email: String,
-    #[validate(custom(function = "validate_password"))]
     pub password: String,
 }
 

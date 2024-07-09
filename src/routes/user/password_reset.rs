@@ -1,3 +1,4 @@
+use super::util::validate_password;
 use crate::middleware::User;
 use actix_web::{
     web::{Data, Json},
@@ -15,7 +16,10 @@ use std::rc::Rc;
 use tracing::Instrument;
 use validator::Validate;
 
-use super::util::validate_password;
+// email password reset
+//  - protected by session, must know the old password to work
+// profile password reset
+// - user receives a email with a link to a page frontend page to inter hes new password
 
 #[derive(Deserialize, Validate, Debug)]
 pub struct ResetPassword {
@@ -23,8 +27,6 @@ pub struct ResetPassword {
     pub old_password: String,
     #[validate(custom(function = "validate_password"))]
     pub new_password: String,
-    // #[validate(email(message = "Not a valid email"))]
-    // pub email: String,
 }
 
 pub async fn profile_password_reset(
