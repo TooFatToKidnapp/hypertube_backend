@@ -96,6 +96,9 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
 
     let user = User {
         id: user.id,
+        first_name: user.first_name,
+        last_name: user.last_name,
+        image_url: user.profile_picture_url,
         email: user.email,
         created_at: user.created_at.to_string(),
         updated_at: user.updated_at.to_string(),
@@ -117,6 +120,8 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
             "data" : {
                 "id": user.id.to_string(),
                 "email": user.email,
+                "first_name": user.first_name,
+                "last_name": user.last_name,
                 "created_at": user.created_at.to_string(),
                 "updated_at": user.updated_at.to_string(),
                 "username" : user.username,

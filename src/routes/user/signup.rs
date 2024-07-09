@@ -1,4 +1,6 @@
-use super::util::{validate_password, validate_user_name};
+use super::util::{
+    validate_password, validate_user_first_name, validate_user_last_name, validate_user_name,
+};
 use actix_web::cookie::time::{Duration, OffsetDateTime};
 use actix_web::cookie::Cookie;
 use actix_web::{
@@ -21,6 +23,10 @@ use validator::Validate;
 
 #[derive(Deserialize, Debug, Validate)]
 pub struct CreateUserRequest {
+    #[validate(custom(function = "validate_user_first_name"))]
+    first_name: String,
+    #[validate(custom(function = "validate_user_last_name"))]
+    last_name: String,
     #[validate(custom(function = "validate_user_name"))]
     username: String,
     #[validate(email(message = "Not a valid email"))]
@@ -75,13 +81,15 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
     let user_id = Uuid::new_v4();
     let query_result = sqlx::query!(
         r#"
-			INSERT INTO users (id, username, email, password_hash, created_at, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6)
+			INSERT INTO users (id, username, email, first_name, last_name, password_hash, created_at, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING *
 		"#,
         user_id,
         body.username,
         body.email,
+        body.first_name,
+        body.last_name,
         password_hash,
         Utc::now(),
         Utc::now()
@@ -137,6 +145,8 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
         user_id,
         serde_json::json!({
             "username": user.username,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
             "email": user.email,
             "created_at": user.created_at,
             "updated_at": user.updated_at
@@ -188,6 +198,8 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
     HttpResponse::Ok().cookie(cookie).json(json!({
         "data" : {
             "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
             "created_at": user.created_at.to_string(),
             "updated_at": user.updated_at.to_string(),
             "username" : user.username,
