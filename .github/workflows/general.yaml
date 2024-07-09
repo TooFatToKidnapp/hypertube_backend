@@ -95,7 +95,7 @@ jobs:
           key: ${{ secrets.SSH_KEY }}
           script: |
             set -e
-            cd /root/cicdtest
+            cd /root/hypertube_backend
             echo "Pulling latest code..."
             git pull origin main
             echo "Setting up Rust environment..."
@@ -110,5 +110,5 @@ jobs:
             echo "Copying configuration..."
             cp /root/hypertube_backend/configuration.json /root/hypertube_backend/target/release/configuration.json
             echo "Restarting service..."
-            sudo systemctl restart cicdtest.service
+            sudo systemctl restart hypertube_backend.service
             echo "Deployment finished"
