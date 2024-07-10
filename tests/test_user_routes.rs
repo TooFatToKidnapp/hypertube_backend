@@ -214,3 +214,78 @@ async fn user_sign_up_test() {
     let adder = format!("{}/user/sign-up", app.address.as_str());
     let _ = create_temporary_user(adder.clone(), signup_body).await;
 }
+
+#[derive(Serialize)]
+struct ResetPassword<'a> {
+    old_password: &'a str,
+    new_password: &'a str,
+}
+
+#[actix_rt::test]
+async fn reset_user_password_reset() {
+    let app = spawn_app().await;
+    let signup_body = SignUpBody {
+        first_name: "test first name",
+        last_name: "test last name",
+        email: "test@gmail.com",
+        username: "username123",
+        password: "Password@123",
+    };
+    let session_id = create_temporary_user(
+        format!("{}/user/sign-up", app.address.as_str()),
+        signup_body,
+    )
+    .await;
+
+    let client = reqwest::Client::new();
+
+    let requset_body = ResetPassword {
+        old_password: "Password@123",
+        new_password: "Test@123456",
+    };
+
+    let res = client
+        .post(format!("{}/user/password/update", app.address.as_str()))
+        .header("Cookie", format!("session={}", session_id))
+        .json(&requset_body)
+        .send()
+        .await
+        .expect("Failed to send request");
+
+    assert!(res.status().is_success());
+}
+
+
+#[actix_rt::test]
+async fn reset_user_password_reset_invalid() {
+    let app = spawn_app().await;
+    let signup_body = SignUpBody {
+        first_name: "test first name",
+        last_name: "test last name",
+        email: "test@gmail.com",
+        username: "username123",
+        password: "Password@123",
+    };
+    let session_id = create_temporary_user(
+        format!("{}/user/sign-up", app.address.as_str()),
+        signup_body,
+    )
+    .await;
+
+    let client = reqwest::Client::new();
+
+    let requset_body = ResetPassword {
+        old_password: "Password@123",
+        new_password: "---",
+    };
+
+    let res = client
+        .post(format!("{}/user/password/update", app.address.as_str()))
+        .header("Cookie", format!("session={}", session_id))
+        .json(&requset_body)
+        .send()
+        .await
+        .expect("Failed to send request");
+
+    assert!(res.status().is_client_error());
+}
