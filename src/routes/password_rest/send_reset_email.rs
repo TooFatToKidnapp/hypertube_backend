@@ -41,7 +41,7 @@ fn build_email(verification_code: &str, username: &str) -> String {
                 margin: 0;
                 padding: 0;
             }
-            .container
+            .container {
                 width: 100%;
                 max-width: 600px;
                 margin: 0 auto;
