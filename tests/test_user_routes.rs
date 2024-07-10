@@ -255,7 +255,6 @@ async fn reset_user_password_reset() {
     assert!(res.status().is_success());
 }
 
-
 #[actix_rt::test]
 async fn reset_user_password_reset_invalid() {
     let app = spawn_app().await;
