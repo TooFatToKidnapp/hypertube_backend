@@ -105,7 +105,7 @@ fn build_email(verification_code: &str, username: &str) -> String {
                     <div class="content">
                         <p>Hello,</p>
                         <p>We received a request to reset your password. Use the verification code below to reset your password. If you did not request a password reset, please ignore this email.</p>
-                        <p>the verification code is only valid for 5 minutes</p>
+                        <p>the verification code is only valid for 10 minutes</p>
                         <div class="verification-code">{}</div>
                     </div>
                     <div class="footer">
@@ -125,7 +125,7 @@ fn send_email(email_content: String, email: &str) -> Result<(), Box<dyn std::err
         std::env::var("EMAIL_SENDER_PASSWORD").expect("EMAIL_SENDER_PASSWORD not set");
 
     let email_body = Message::builder()
-        .from(sender.as_str().parse::<Mailbox>()?)
+        .from(sender.parse::<Mailbox>()?)
         .to(email.parse::<Mailbox>()?)
         .subject("Password reset request")
         .multipart(MultiPart::alternative().singlepart(SinglePart::html(email_content)))?;
