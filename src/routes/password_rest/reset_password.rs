@@ -7,10 +7,10 @@ use argon2::{
     password_hash::{rand_core::OsRng, PasswordHasher, SaltString},
     Argon2,
 };
+use chrono::Utc;
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::PgPool;
-use chrono::Utc;
 use std::borrow::Cow;
 use tracing::Instrument;
 use uuid::Uuid;
@@ -72,7 +72,7 @@ pub async fn reset_password(body: Json<UpdatePassword>, connection: Data<PgPool>
     match query_res {
         Ok(res) => {
             tracing::info!("found verification record");
-            if res.is_validated == Some(false) || res.is_validated == None {
+            if !res.is_validated {
                 tracing::info!("record not validated");
                 return HttpResponse::BadRequest().json(json!({
                     "message": "not yet verified"
@@ -105,21 +105,17 @@ pub async fn reset_password(body: Json<UpdatePassword>, connection: Data<PgPool>
     let query_res = sqlx::query!(
         r#"
             UPDATE users SET password_hash = $1, updated_at = $2 WHERE email = $3
-            RETURNING id
         "#,
         password_hash,
         Utc::now(),
         body.email
     )
-    .fetch_one(connection.as_ref())
+    .execute(connection.as_ref())
     .instrument(query_span.clone())
     .await;
 
-    let user = match query_res {
-        Ok(user) => {
-            tracing::info!("User Password updated successfully");
-            user
-        }
+    match query_res {
+        Ok(_) => tracing::info!("User Password updated successfully"),
         Err(err) => {
             tracing::error!("database error {:#?}", err);
             return HttpResponse::InternalServerError().json(json!({
@@ -129,11 +125,11 @@ pub async fn reset_password(body: Json<UpdatePassword>, connection: Data<PgPool>
     };
 
     let delete_query_res = sqlx::query(
-    r#"
+        r#"
             DELETE FROM password_verification_code WHERE id = $1
         "#,
     )
-    .bind(user.id)
+    .bind(Uuid::parse_str(body.verification_id.as_str()).unwrap())
     .execute(connection.as_ref())
     .instrument(query_span.clone())
     .await;

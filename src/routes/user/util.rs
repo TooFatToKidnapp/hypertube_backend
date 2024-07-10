@@ -36,7 +36,6 @@ pub fn user_source(db_pool: &PgPool) -> Scope {
         )
 }
 
-
 const CHECK_FOR_UPPERCASE: &str = ".*[A-Z].*";
 const CHECK_FOR_LOWERCASE: &str = ".*[a-z].*";
 const CHECK_FOR_NUMBER: &str = ".*[0-9].*";

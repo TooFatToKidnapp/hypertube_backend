@@ -196,6 +196,7 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
     tracing::info!("successful Login");
     HttpResponse::Ok().cookie(cookie).json(json!({
         "data" : {
+            "id": user.id.to_string(),
             "email": user.email,
             "first_name": user.first_name,
             "last_name": user.last_name,

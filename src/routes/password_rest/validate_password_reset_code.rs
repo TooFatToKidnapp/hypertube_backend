@@ -7,11 +7,9 @@ use chrono::Utc;
 
 use serde::Deserialize;
 use serde_json::json;
-use sqlx::{query, PgPool};
+use sqlx::PgPool;
 use tracing::Instrument;
 use validator::Validate;
-
-
 
 #[derive(Deserialize, Validate)]
 pub struct ValidateResetCode {
@@ -120,7 +118,8 @@ pub async fn validate_password_reset_code(
         "#,
         true,
         verification_record.id
-    ).execute(connection.as_ref())
+    )
+    .execute(connection.as_ref())
     .instrument(query_span)
     .await;
 

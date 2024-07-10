@@ -18,7 +18,6 @@ use sqlx::PgPool;
 use tracing::Instrument;
 use validator::Validate;
 
-
 #[derive(Validate, Deserialize)]
 pub struct UserEmail {
     #[validate(email(message = "Not a valid email"))]
@@ -122,14 +121,14 @@ fn build_email(verification_code: &str, username: &str) -> String {
 
 fn send_email(email_content: String, email: &str) -> Result<(), Box<dyn std::error::Error>> {
     let sender = std::env::var("EMAIL_SENDER_USERNAME").expect("EMAIL_SENDER_USERNAME not set");
-    let sender_password = std::env::var("EMAIL_SENDER_PASSWORD").expect("EMAIL_SENDER_PASSWORD not set");
+    let sender_password =
+        std::env::var("EMAIL_SENDER_PASSWORD").expect("EMAIL_SENDER_PASSWORD not set");
 
     let email_body = Message::builder()
         .from(sender.as_str().parse::<Mailbox>()?)
         .to(email.parse::<Mailbox>()?)
         .subject("Password reset request")
         .multipart(MultiPart::alternative().singlepart(SinglePart::html(email_content)))?;
-
 
     let creds = Credentials::new(sender, sender_password);
     let mailer = SmtpTransport::relay("smtp.gmail.com")?
@@ -273,7 +272,9 @@ pub async fn send_password_reset_email(
                     "error": "failed to write changes to the database"
                 }));
             }
-            HttpResponse::Ok().finish()
+            HttpResponse::Ok().json(json!({
+                "message": "Email sent"
+            }))
         }
         Err(_) => {
             let res = transaction.rollback().await;
