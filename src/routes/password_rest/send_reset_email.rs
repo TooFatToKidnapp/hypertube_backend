@@ -5,19 +5,19 @@ use actix_web::{
 };
 use chrono::Utc;
 use lettre::{
-    message::{header::ContentType, Attachment, Body, Mailbox, MultiPart, SinglePart},
+    message::{Mailbox, MultiPart, SinglePart},
     transport::smtp::authentication::Credentials,
     Message, SmtpTransport, Transport,
 };
-use passport_strategies::basic_client::Verifier;
+
 use rand::{self, Rng};
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::types::Uuid;
 use sqlx::PgPool;
 use tracing::Instrument;
-use uuid::fmt::Hyphenated;
 use validator::Validate;
+
 
 #[derive(Validate, Deserialize)]
 pub struct UserEmail {
@@ -121,16 +121,17 @@ fn build_email(verification_code: &str, username: &str) -> String {
 }
 
 fn send_email(email_content: String, email: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let sender = std::env::var("EMAIL_SENDER_USERNAME").expect("EMAIL_SENDER_USERNAME not set");
+    let sender_password = std::env::var("EMAIL_SENDER_PASSWORD").expect("EMAIL_SENDER_PASSWORD not set");
+
     let email_body = Message::builder()
-        .from("abdouali422@gmail.com".parse::<Mailbox>()?)
+        .from(sender.as_str().parse::<Mailbox>()?)
         .to(email.parse::<Mailbox>()?)
         .subject("Password reset request")
         .multipart(MultiPart::alternative().singlepart(SinglePart::html(email_content)))?;
 
-    let username = std::env::var("EMAIL_USERNAME").expect("EMAIL_USERNAME not set");
-    let password = std::env::var("EMAIL_PASSWORD").expect("EMAIL_PASSWORD not set");
 
-    let creds = Credentials::new(username, password);
+    let creds = Credentials::new(sender, sender_password);
     let mailer = SmtpTransport::relay("smtp.gmail.com")?
         .credentials(creds)
         .build();
@@ -151,7 +152,6 @@ pub async fn send_password_reset_email(
     body: Json<UserEmail>,
     connection: Data<PgPool>,
 ) -> HttpResponse {
-
     let is_valid = body.validate();
     if let Err(error) = is_valid {
         let source = error.field_errors();
@@ -206,6 +206,26 @@ pub async fn send_password_reset_email(
 
     let code = generate_random_ten_character_code();
 
+    let delete_query_res = sqlx::query(
+        r#"
+            DELETE FROM password_verification_code WHERE user_id = $1
+        "#,
+    )
+    .bind(user.id)
+    .execute(connection.as_ref())
+    .instrument(query_span.clone())
+    .await;
+
+    match delete_query_res {
+        Ok(rows_affected) => tracing::info!("Number of rows deleted = {:#?}", rows_affected),
+        Err(err) => {
+            tracing::error!("Failed to delete previous verification codes {:#?}", err);
+            return HttpResponse::InternalServerError().json(json!({
+                "error": "something went wrong"
+            }));
+        }
+    }
+
     let transaction_result = connection.begin().await;
     let mut transaction = match transaction_result {
         Ok(transaction) => transaction,
@@ -225,8 +245,9 @@ pub async fn send_password_reset_email(
     .bind(Uuid::new_v4())
     .bind(user.id)
     .bind(Utc::now() + chrono::Duration::minutes(10))
+    .bind(Utc::now())
     .bind(code.as_str())
-    .fetch_one(&mut *transaction)
+    .execute(&mut *transaction)
     .instrument(query_span.clone())
     .await;
 
@@ -267,5 +288,4 @@ pub async fn send_password_reset_email(
             }))
         }
     }
-
 }

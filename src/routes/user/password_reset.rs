@@ -9,6 +9,7 @@ use argon2::{
     password_hash::{rand_core::OsRng, SaltString},
     Argon2, PasswordHash, PasswordVerifier,
 };
+use chrono::Utc;
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::PgPool;
@@ -143,10 +144,11 @@ pub async fn profile_password_reset(
 
     let query_result = sqlx::query(
         r#"
-				UPDATE users SET password_hash = $1 WHERE id = $2
+				UPDATE users SET password_hash = $1, updated_at = $2 WHERE id = $3
 			"#,
     )
     .bind(password_hash)
+    .bind(Utc::now())
     .bind(user.id)
     .execute(connection.as_ref())
     .instrument(query_span)

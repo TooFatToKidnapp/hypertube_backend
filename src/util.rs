@@ -14,4 +14,6 @@ pub fn check_for_necessary_env() {
     env::var("CLIENT_ID_GITHUB").expect("CLIENT_ID_GITHUB env must be set");
     env::var("CLIENT_SECRET_GITHUB").expect("CLIENT_SECRET_GITHUB env must be set");
     env::var("CLIENT_SCOPE_GITHUB").expect("CLIENT_SCOPE_GITHUB env must be set");
+    env::var("EMAIL_SENDER_USERNAME").expect("EMAIL_SENDER_USERNAME env must be set");
+    env::var("EMAIL_SENDER_PASSWORD").expect("EMAIL_SENDER_PASSWORD env must be set");
 }

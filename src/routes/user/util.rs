@@ -16,7 +16,7 @@ use validator::ValidationError;
 
 use crate::middleware::{Authentication, User};
 
-use super::{get_user, profile_password_reset, send_password_reset_email, user_login, user_signup};
+use super::{get_user, profile_password_reset, user_login, user_signup};
 
 pub fn user_source(db_pool: &PgPool) -> Scope {
     web::scope("/user")
@@ -29,13 +29,13 @@ pub fn user_source(db_pool: &PgPool) -> Scope {
                 .wrap(Authentication::new(db_pool.clone())),
         )
         .route(
-            "/password",
+            "/password/update",
             post()
                 .to(profile_password_reset)
                 .wrap(Authentication::new(db_pool.clone())),
         )
-        .route("/email", web::post().to(send_password_reset_email))
 }
+
 
 const CHECK_FOR_UPPERCASE: &str = ".*[A-Z].*";
 const CHECK_FOR_LOWERCASE: &str = ".*[a-z].*";

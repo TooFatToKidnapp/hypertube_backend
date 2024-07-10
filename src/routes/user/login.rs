@@ -38,8 +38,8 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
 
     let result = sqlx::query!(
         r#"
-      SELECT * FROM users WHERE email = $1 AND password_hash IS NOT NULL
-    "#,
+            SELECT * FROM users WHERE email = $1 AND password_hash IS NOT NULL
+        "#,
         body.email,
     )
     .fetch_one(connection.get_ref())
