@@ -16,7 +16,7 @@ use validator::ValidationError;
 
 use crate::middleware::{Authentication, User};
 
-use super::{get_user, user_login, user_signup};
+use super::{get_user, profile_password_reset, user_login, user_signup};
 
 pub fn user_source(db_pool: &PgPool) -> Scope {
     web::scope("/user")
@@ -26,6 +26,12 @@ pub fn user_source(db_pool: &PgPool) -> Scope {
             "",
             get()
                 .to(get_user)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/password/update",
+            post()
+                .to(profile_password_reset)
                 .wrap(Authentication::new(db_pool.clone())),
         )
 }

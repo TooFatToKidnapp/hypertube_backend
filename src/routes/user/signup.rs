@@ -37,7 +37,6 @@ pub struct CreateUserRequest {
 
 pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>) -> HttpResponse {
     let query_span = tracing::info_span!("Saving new user details in the database", ?body);
-    tracing::info!("Got request body: {:#?}", body);
     let is_valid = body.validate();
     if let Err(error) = is_valid {
         let source = error.field_errors();
@@ -197,6 +196,7 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
     tracing::info!("successful Login");
     HttpResponse::Ok().cookie(cookie).json(json!({
         "data" : {
+            "id": user.id.to_string(),
             "email": user.email,
             "first_name": user.first_name,
             "last_name": user.last_name,

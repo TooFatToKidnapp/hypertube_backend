@@ -1,6 +1,4 @@
 use crate::{middleware::User, routes::create_session};
-
-use super::util::validate_password;
 use actix_web::{
     web::{Data, Json},
     HttpResponse,
@@ -16,7 +14,6 @@ use validator::Validate;
 pub struct UserData {
     #[validate(email(message = "Not a valid email"))]
     pub email: String,
-    #[validate(custom(function = "validate_password"))]
     pub password: String,
 }
 
@@ -41,8 +38,8 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
 
     let result = sqlx::query!(
         r#"
-      SELECT * FROM users WHERE email = $1 AND password_hash IS NOT NULL
-    "#,
+            SELECT * FROM users WHERE email = $1 AND password_hash IS NOT NULL
+        "#,
         body.email,
     )
     .fetch_one(connection.get_ref())

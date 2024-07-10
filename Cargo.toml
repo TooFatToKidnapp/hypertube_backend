@@ -34,6 +34,8 @@ futures-util = "0.3.30"
 jsonwebtoken = "9.3.0"
 passport-strategies = "0.1.5"
 oauth2 = "4.4.2"
+rand = "0.8.5"
+lettre = "0.11.7"
 
 [dependencies.sqlx]
 version = "0.7.4"
