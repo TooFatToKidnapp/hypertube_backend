@@ -23,6 +23,12 @@ env:
   CLIENT_ID_GITHUB: ${{ secrets.CLIENT_ID_GITHUB }}
   CLIENT_SECRET_GITHUB: ${{ secrets.CLIENT_SECRET_GITHUB }}
   CLIENT_SCOPE_GITHUB: ${{ secrets.CLIENT_SCOPE_GITHUB }}
+  S3_BUCKET_SECRET_KEY: ${{ secrets.S3_BUCKET_SECRET_KEY }}
+  S3_BUCKET_ACCESS_KEY: ${{ secrets.S3_BUCKET_ACCESS_KEY }}
+  S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+  S3_PROVIDER_URL: ${{ secrets.S3_PROVIDER_URL }}
+  S3_BUCKET_URL: ${{ secrets.S3_BUCKET_URL }}
+  S3_REGION: ${{ secrets.S3_REGION }}
 
 jobs:
   test:

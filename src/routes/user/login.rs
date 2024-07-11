@@ -40,7 +40,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
         r#"
             SELECT * FROM users WHERE email = $1 AND password_hash IS NOT NULL
         "#,
-        body.email,
+        body.email
     )
     .fetch_one(connection.get_ref())
     .instrument(query_span)
