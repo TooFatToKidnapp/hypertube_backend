@@ -209,7 +209,7 @@ pub async fn upload_user_profile_image(
 				Update users SET profile_picture_url = $1, updated_at = $2 WHERE email = $3
 			"#,
     )
-    .bind(image_url)
+    .bind(image_url.clone())
     .bind(Utc::now())
     .bind(user_email)
     .execute(connection.as_ref())
@@ -219,7 +219,11 @@ pub async fn upload_user_profile_image(
     match query_res {
         Ok(_) => {
             tracing::info!("image saved successfully in the database");
-            HttpResponse::Ok().finish()
+            HttpResponse::Ok().json(json!({
+                "data": {
+                    "image_url": image_url
+                }
+            }))
         }
         Err(err) => {
             tracing::error!("Database error {:#?}", err);

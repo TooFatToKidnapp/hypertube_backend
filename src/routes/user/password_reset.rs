@@ -17,11 +17,6 @@ use std::rc::Rc;
 use tracing::Instrument;
 use validator::Validate;
 
-// email password reset
-//  - protected by session, must know the old password to work
-// profile password reset
-// - user receives a email with a link to a page frontend page to inter hes new password
-
 #[derive(Deserialize, Validate, Debug)]
 pub struct ResetPassword {
     #[validate(custom(function = "validate_password"))]
