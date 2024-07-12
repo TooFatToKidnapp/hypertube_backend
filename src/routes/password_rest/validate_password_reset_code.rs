@@ -59,6 +59,7 @@ pub async fn validate_password_reset_code(
             image_url: user.profile_picture_url,
             created_at: user.created_at.to_string(),
             updated_at: user.updated_at.to_string(),
+            session_id: None,
         },
         Err(sqlx::Error::RowNotFound) => {
             tracing::info!("User with email {} not found in database", body.email);

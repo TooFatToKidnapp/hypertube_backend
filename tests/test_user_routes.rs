@@ -288,3 +288,59 @@ async fn reset_user_password_reset_invalid() {
 
     assert!(res.status().is_client_error());
 }
+
+#[actix_rt::test]
+async fn test_user_logout() {
+    let app = spawn_app().await;
+
+    let signup_body = SignUpBody {
+        first_name: "test first name",
+        last_name: "test last name",
+        email: "test@gmail.com",
+        username: "username123",
+        password: "Password@123",
+    };
+    let adder = format!("{}/user/sign-up", app.address.as_str());
+    let session_id = create_temporary_user(adder, signup_body).await;
+
+    let sign_out_adder = format!("{}/user/sign-out", app.address.as_str());
+
+    let client = reqwest::Client::new();
+
+    let res = client
+        .get(sign_out_adder)
+        .header(http::header::COOKIE, format!("session={}", session_id))
+        .send()
+        .await
+        .expect("Failed to send request");
+
+    assert!(res.status().is_success());
+}
+
+#[actix_rt::test]
+async fn test_user_logout_with_invalid_session() {
+    let app = spawn_app().await;
+
+    let signup_body = SignUpBody {
+        first_name: "test first name",
+        last_name: "test last name",
+        email: "test@gmail.com",
+        username: "username123",
+        password: "Password@123",
+    };
+    let adder = format!("{}/user/sign-up", app.address.as_str());
+    let _ = create_temporary_user(adder, signup_body).await;
+
+    let sign_out_adder = format!("{}/user/sign-out", app.address.as_str());
+
+    let client = reqwest::Client::new();
+
+    let res = client
+        .get(sign_out_adder)
+        .header(http::header::COOKIE, format!("session={}", ""))
+        .send()
+        .await
+        .expect("Failed to send request");
+
+    assert!(res.status().is_client_error());
+}
