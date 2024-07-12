@@ -46,7 +46,7 @@ pub async fn get_user(
         let extension = req.extensions();
         let user_option = extension.get::<Rc<User>>();
         match user_option {
-            Some(user) => user.id.clone(),
+            Some(user) => user.id,
             None => {
                 tracing::info!("User field not found in req object");
                 return HttpResponse::NotFound().json(json!({
@@ -62,10 +62,9 @@ pub async fn get_user(
             tracing::error!("Error parsing param id {:#?}", err);
             return HttpResponse::BadRequest().json(json!({
                 "error": "Error parsing param id"
-            }))
+            }));
         }
     };
-
 
     let query_res = sqlx::query!(
         r#"
@@ -78,23 +77,21 @@ pub async fn get_user(
     .await;
 
     let user_info = match query_res {
-        Ok(user) => {
-            User {
-                session_id: None,
-                username: user.username,
-                first_name: user.first_name,
-                last_name: user.last_name,
-                email: user.email,
-                image_url: user.profile_picture_url,
-                id: user.id,
-                created_at: user.created_at.to_string(),
-                updated_at: user.updated_at.to_string()
-            }
+        Ok(user) => User {
+            session_id: None,
+            username: user.username,
+            first_name: user.first_name,
+            last_name: user.last_name,
+            email: user.email,
+            image_url: user.profile_picture_url,
+            id: user.id,
+            created_at: user.created_at.to_string(),
+            updated_at: user.updated_at.to_string(),
         },
         Err(sqlx::Error::RowNotFound) => {
             tracing::error!("User not found");
             return HttpResponse::NotFound().finish();
-        },
+        }
         Err(err) => {
             tracing::error!("Database Error {:#?}", err);
             return HttpResponse::InternalServerError().json(json!({
@@ -102,7 +99,6 @@ pub async fn get_user(
             }));
         }
     };
-
 
     let mut response_body = json!({
         "data" : {
@@ -121,5 +117,4 @@ pub async fn get_user(
     }
 
     HttpResponse::Ok().json(response_body)
-
 }

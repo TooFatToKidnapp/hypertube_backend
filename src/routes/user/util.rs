@@ -224,8 +224,6 @@ pub async fn create_session(
     Ok(cookie)
 }
 
-
-
 pub fn validate_uuid(id: &str) -> Result<(), ValidationError> {
     match Uuid::parse_str(id) {
         Ok(parsed_uuid) => {
