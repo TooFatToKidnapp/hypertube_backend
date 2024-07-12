@@ -5,7 +5,7 @@ use actix_web::{
         time::{Duration, OffsetDateTime},
         Cookie, Expiration, SameSite,
     },
-    web::{self, get, post},
+    web::{self, get, patch, post},
     Scope,
 };
 use chrono::Utc;
@@ -17,20 +17,14 @@ use validator::ValidationError;
 use crate::middleware::{Authentication, User};
 
 use super::{
-    get_user, profile_password_reset, sign_out_user, upload_user_profile_image, user_login,
-    user_signup,
+    get_user, profile_password_reset, sign_out_user, update_profile_information,
+    upload_user_profile_image, user_login, user_signup,
 };
 
 pub fn user_source(db_pool: &PgPool) -> Scope {
     web::scope("/users")
         .route("/sign-up", web::post().to(user_signup))
         .route("/login", post().to(user_login))
-        .route(
-            "/{id}",
-            get()
-                .to(get_user)
-                .wrap(Authentication::new(db_pool.clone())),
-        )
         .route(
             "/password/update",
             post()
@@ -47,6 +41,18 @@ pub fn user_source(db_pool: &PgPool) -> Scope {
             "/sign-out",
             get()
                 .to(sign_out_user)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/update",
+            patch()
+                .to(update_profile_information)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/{id}",
+            get()
+                .to(get_user)
                 .wrap(Authentication::new(db_pool.clone())),
         )
 }

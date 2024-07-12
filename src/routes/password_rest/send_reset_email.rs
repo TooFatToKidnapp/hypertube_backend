@@ -255,6 +255,7 @@ pub async fn send_password_reset_email(
         Ok(_) => {}
         Err(err) => {
             tracing::error!("Failed to create verification entry {:#?}", err);
+            let _ = transaction.rollback().await;
             return HttpResponse::InternalServerError().json(json!({
                 "error": "something went wrong"
             }));
