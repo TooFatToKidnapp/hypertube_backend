@@ -29,7 +29,6 @@ pub async fn sign_out_user(connection: Data<PgPool>, req: HttpRequest) -> HttpRe
         }
         id_option.unwrap()
     };
-    println!("session id = {session_id:#?}");
     let query_res = sqlx::query(
         r#"
 				DELETE FROM sessions WHERE id = $1
