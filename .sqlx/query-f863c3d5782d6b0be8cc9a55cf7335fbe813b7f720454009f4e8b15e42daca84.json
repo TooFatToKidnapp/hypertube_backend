@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "\n      SELECT * FROM users WHERE email = $1 AND password_hash IS NOT NULL\n    ",
+  "query": "\n\t\t\tSELECT * FROM users WHERE email = $1\n\t\t",
   "describe": {
     "columns": [
       {
@@ -15,38 +15,38 @@
       },
       {
         "ordinal": 2,
-        "name": "email",
-        "type_info": "Varchar"
-      },
-      {
-        "ordinal": 3,
-        "name": "password_hash",
-        "type_info": "Varchar"
-      },
-      {
-        "ordinal": 4,
-        "name": "created_at",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 5,
-        "name": "updated_at",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 6,
         "name": "first_name",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 7,
+        "ordinal": 3,
         "name": "last_name",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 8,
+        "ordinal": 4,
         "name": "profile_picture_url",
         "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "password_hash",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -57,14 +57,14 @@
     "nullable": [
       false,
       false,
+      true,
+      true,
+      true,
       false,
       true,
       false,
-      false,
-      true,
-      true,
-      true
+      false
     ]
   },
-  "hash": "a9a07f985500eb4d83dba367f6307f6cd36d21aff6fe721779b9f74b3254ead8"
+  "hash": "f863c3d5782d6b0be8cc9a55cf7335fbe813b7f720454009f4e8b15e42daca84"
 }

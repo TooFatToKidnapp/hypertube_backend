@@ -1,7 +1,6 @@
 mod test_startup;
 
 use actix_web::http;
-use core::panic;
 use reqwest;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -323,7 +322,10 @@ async fn test_log_out_user() {
 
     assert!(res.status().is_success());
     let sign_out_session_val = res.headers().get("Set-Cookie").unwrap().to_str().unwrap();
-    assert_eq!(sign_out_session_val, "session=; HttpOnly; SameSite=Strict; Secure; Path=/; Max-Age=0");
+    assert_eq!(
+        sign_out_session_val,
+        "session=; HttpOnly; SameSite=Strict; Secure; Path=/; Max-Age=0"
+    );
 }
 
 #[actix_rt::test]
