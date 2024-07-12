@@ -9,7 +9,6 @@ use tracing::Instrument;
 
 pub async fn sign_out_user(connection: Data<PgPool>, req: HttpRequest) -> HttpResponse {
     let query_span = tracing::info_span!("User sign-out event");
-
     let session_id = {
         let extension = req.extensions();
         let id_option = match extension.get::<Rc<User>>() {

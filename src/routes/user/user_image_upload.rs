@@ -47,10 +47,10 @@ pub async fn upload_user_profile_image(
     req: HttpRequest,
 ) -> HttpResponse {
     let query_span = tracing::info_span!("Saving user profile image in the database");
-    let user_email = {
+    let (user_email, user_image_url) = {
         let extension = req.extensions();
         match extension.get::<Rc<User>>() {
-            Some(user) => user.email.clone(),
+            Some(user) => (user.email.clone(), user.image_url.clone()),
             None => {
                 tracing::info!("User field not found in req object");
                 return HttpResponse::NotFound().json(json!({
@@ -59,6 +59,7 @@ pub async fn upload_user_profile_image(
             }
         }
     };
+
     let content_len = match req.headers().get("Content-Length") {
         Some(value) => {
             let len_res = value.to_str().unwrap_or("0").parse::<usize>();
@@ -147,6 +148,27 @@ pub async fn upload_user_profile_image(
         }
 
         let body = ByteStream::from(file_bytes.freeze());
+
+        if user_image_url.is_some() {
+            tracing::info!("User already has a profile image. Delaying...");
+            let url = user_image_url.unwrap();
+            let path = url.split("/profile/").collect::<Vec<&str>>()[1];
+            match aws_client
+                .delete_object()
+                .bucket(bucket.clone())
+                .key(format!("profile/{}", path))
+                .send()
+                .await
+            {
+                Ok(_) => tracing::info!("File Deleted successfully"),
+                Err(err) => {
+                    tracing::error!("Failed to delete file: {:?}", err);
+                    return HttpResponse::InternalServerError().json(json!({
+                        "error": "Something went wrong"
+                    }));
+                }
+            }
+        }
 
         match aws_client
             .put_object()

@@ -15,38 +15,38 @@
       },
       {
         "ordinal": 2,
-        "name": "email",
-        "type_info": "Varchar"
-      },
-      {
-        "ordinal": 3,
-        "name": "password_hash",
-        "type_info": "Varchar"
-      },
-      {
-        "ordinal": 4,
-        "name": "created_at",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 5,
-        "name": "updated_at",
-        "type_info": "Timestamptz"
-      },
-      {
-        "ordinal": 6,
         "name": "first_name",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 7,
+        "ordinal": 3,
         "name": "last_name",
         "type_info": "Varchar"
       },
       {
-        "ordinal": 8,
+        "ordinal": 4,
         "name": "profile_picture_url",
         "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "password_hash",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
       }
     ],
     "parameters": {
@@ -63,13 +63,13 @@
     "nullable": [
       false,
       false,
+      true,
+      true,
+      true,
       false,
       true,
       false,
-      false,
-      true,
-      true,
-      true
+      false
     ]
   },
   "hash": "9481c32a8b69838081fa978e0156175b4e0d39319402aed76bbbe5b853556d8d"
