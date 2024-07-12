@@ -100,6 +100,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
         created_at: user.created_at.to_string(),
         updated_at: user.updated_at.to_string(),
         username: user.username,
+        session_id: None,
     };
     let session_result = create_session(connection.as_ref(), user.clone()).await;
     if session_result.is_err() {

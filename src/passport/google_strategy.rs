@@ -87,6 +87,7 @@ pub async fn authenticate_google(
                 created_at: user.created_at.to_string(),
                 updated_at: user.updated_at.to_string(),
                 username: user.username,
+                session_id: None,
             };
             let session_result = create_session(connection.as_ref(), user.clone()).await;
             if session_result.is_err() {
@@ -156,6 +157,7 @@ pub async fn authenticate_google(
                 created_at: user_rec.created_at.to_string(),
                 updated_at: user_rec.updated_at.to_string(),
                 username: user_rec.username,
+                session_id: None,
             };
             let session_result = create_session(connection.as_ref(), user.clone()).await;
             if session_result.is_err() {
