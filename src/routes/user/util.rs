@@ -22,11 +22,11 @@ use super::{
 };
 
 pub fn user_source(db_pool: &PgPool) -> Scope {
-    web::scope("/user")
+    web::scope("/users")
         .route("/sign-up", web::post().to(user_signup))
         .route("/login", post().to(user_login))
         .route(
-            "",
+            "/{id}",
             get()
                 .to(get_user)
                 .wrap(Authentication::new(db_pool.clone())),
@@ -222,4 +222,20 @@ pub async fn create_session(
         ))
         .finish();
     Ok(cookie)
+}
+
+
+
+pub fn validate_uuid(id: &str) -> Result<(), ValidationError> {
+    match Uuid::parse_str(id) {
+        Ok(parsed_uuid) => {
+            if parsed_uuid.get_version_num() == 4 {
+                return Ok(());
+            }
+            Err(ValidationError::new("Invalid verification id")
+                .with_message(Cow::from("Invalid UUID version")))
+        }
+        Err(_) => Err(ValidationError::new("Invalid verification id")
+            .with_message(Cow::from("Not a valid UUID"))),
+    }
 }

@@ -1,4 +1,4 @@
-mod get_user;
+mod get_user_info;
 mod login;
 mod password_reset;
 mod sign_out;
@@ -6,7 +6,7 @@ mod signup;
 mod user_image_upload;
 mod util;
 
-use get_user::*;
+use get_user_info::*;
 use login::*;
 use password_reset::*;
 use sign_out::*;
