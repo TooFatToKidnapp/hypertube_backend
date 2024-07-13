@@ -2,6 +2,8 @@ use crate::passport::{configure_passport_service, passport_route_auth, passport_
 use crate::routes::hello_world::handler;
 use crate::routes::password_rest::password_source;
 use crate::routes::user::user_source;
+use crate::routes::movies::movie_source;
+
 use actix_web::{
     dev::Server,
     web::{self, Data},
@@ -46,6 +48,7 @@ pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std:
             .service(passport_route_redirect())
             .service(user_source(&db_pool))
             .service(password_source())
+            .service(movie_source(&db_pool))
             .route("/", web::get().to(handler))
             .app_data(db_pool.clone())
     })
