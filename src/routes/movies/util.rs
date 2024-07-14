@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 
 use actix_web::{
-    web::{self, get, patch, post},
+    web,
     Scope,
 };
 use sqlx::PgPool;
@@ -9,7 +9,7 @@ use validator::ValidationError;
 
 use crate::middleware::Authentication;
 
-use super::{get_movie_list, Source};
+use super::get_movie_list;
 
 pub fn movie_source(db_pool: &PgPool) -> Scope {
     web::scope("/movies").route(
