@@ -1,8 +1,8 @@
 use crate::passport::{configure_passport_service, passport_route_auth, passport_route_redirect};
 use crate::routes::hello_world::handler;
+use crate::routes::movies::movie_source;
 use crate::routes::password_rest::password_source;
 use crate::routes::user::user_source;
-use crate::routes::movies::movie_source;
 
 use actix_web::{
     dev::Server,

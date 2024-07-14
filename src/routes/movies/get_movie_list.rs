@@ -3,18 +3,19 @@ use actix_web::{
     web::{Data, Json, Query},
     HttpResponse,
 };
-use std::fmt;
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::PgPool;
+use std::fmt;
 use validator::Validate;
 use yts_api::{ListMovies, MovieList};
+
 // https://ww4.yts.nz/api
 // https://popcornofficial.docs.apiary.io/#reference/show/get-page/pages
 // https://crates.io/crates/yts-api
 // https://developer.themoviedb.org/docs/getting-started
 
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize, Debug, Clone)]
 pub enum Genre {
     Action,
     Drama,
@@ -46,35 +47,38 @@ pub enum Genre {
 
 impl fmt::Display for Genre {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}",
-        match self {
-            Genre::Action => "Action",
-            Genre::Drama => "Drama",
-            Genre::Thriller => "Thriller",
-            Genre::Crime => "Crime",
-            Genre::Adventure => "Adventure",
-            Genre::Comedy => "Comedy",
-            Genre::SciFi => "SciFi",
-            Genre::Romance => "Romance",
-            Genre::Fantasy => "Fantasy",
-            Genre::Horror => "Horror",
-            Genre::Mystery => "Mystery",
-            Genre::War => "War",
-            Genre::Animation => "Animation",
-            Genre::History => "History",
-            Genre::Family => "Family",
-            Genre::Western => "Western",
-            Genre::Sport => "Sport",
-            Genre::Documentary => "Documentary",
-            Genre::Biography => "Biography",
-            Genre::Musical => "Musical",
-            Genre::Music => "Music",
-            Genre::FilmNoir => "FilmNoir",
-            Genre::News => "News",
-            Genre::RealityTV => "RealityTV",
-            Genre::GameShow => "GameShow",
-            Genre::TalkShow => "TalkShow",
-        })
+        write!(
+            f,
+            "{}",
+            match self {
+                Genre::Action => "Action",
+                Genre::Drama => "Drama",
+                Genre::Thriller => "Thriller",
+                Genre::Crime => "Crime",
+                Genre::Adventure => "Adventure",
+                Genre::Comedy => "Comedy",
+                Genre::SciFi => "SciFi",
+                Genre::Romance => "Romance",
+                Genre::Fantasy => "Fantasy",
+                Genre::Horror => "Horror",
+                Genre::Mystery => "Mystery",
+                Genre::War => "War",
+                Genre::Animation => "Animation",
+                Genre::History => "History",
+                Genre::Family => "Family",
+                Genre::Western => "Western",
+                Genre::Sport => "Sport",
+                Genre::Documentary => "Documentary",
+                Genre::Biography => "Biography",
+                Genre::Musical => "Musical",
+                Genre::Music => "Music",
+                Genre::FilmNoir => "FilmNoir",
+                Genre::News => "News",
+                Genre::RealityTV => "RealityTV",
+                Genre::GameShow => "GameShow",
+                Genre::TalkShow => "TalkShow",
+            }
+        )
     }
 }
 
@@ -89,10 +93,14 @@ pub enum Source {
 #[derive(Deserialize, Validate, Debug)]
 pub struct SearchBody {
     #[validate(custom(function = "validate_title"))]
-    pub title: String,
+    pub query_term: String,
     pub genre: Option<Genre>,
     pub source: Option<Source>,
-    // pub date: Option<>
+    pub quality: Option<String>,
+    minimum_rating: Option<u8>,
+    sort_by: Option<SortBy>,
+    order_by: Option<SearchOrder>,
+    with_rt_ratings: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -101,22 +109,40 @@ pub struct Paginate {
     pub page: Option<u32>,
 }
 
+#[derive(Default, Deserialize, Debug, Clone)]
 pub enum SearchOrder {
+    #[default]
     Desc,
     Asc,
 }
 
+#[derive(Debug)]
 struct SearchQueryMetadata {
     pub page: u32,
     pub page_size: u8,
     pub source: Source,
-    pub quality: String,
-    pub minimum_rating: u8,
+    pub quality: Option<String>,
+    pub minimum_rating: Option<u8>,
     pub query_term: String,
-    pub genre: Genre,
-    pub sort_by: String,
-    pub order_by: SearchOrder,
+    pub genre: Option<Genre>,
+    pub sort_by: Option<SortBy>,
+    pub order_by: Option<SearchOrder>,
     with_rt_ratings: bool,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub enum SortBy {
+    Title,
+    Year,
+    Rating,
+    Peers,
+    Seeds,
+    #[allow(non_camel_case_types)]
+    Download_count,
+    #[allow(non_camel_case_types)]
+    Like_count,
+    #[allow(non_camel_case_types)]
+    Sate_added,
 }
 
 // YTS PAGE cant be <= 1
@@ -124,14 +150,12 @@ struct SearchQueryMetadata {
 // title must not contain white space, replace space with '-'
 
 async fn query_yts_content_provider(
-    page: u32,
-    page_size: u8,
-    search_query: &str,
+    metadata: &SearchQueryMetadata
 ) -> Result<MovieList, Box<dyn std::error::Error + Send + Sync>> {
     let mut yts_movie_client = ListMovies::new();
-    let mut res = yts_movie_client.limit(page_size).query_term(search_query);
-    if page > 1 {
-        res = res.page(page)
+    let mut res = yts_movie_client.limit(metadata.page_size).query_term(&metadata.query_term);
+    if metadata.page > 1 {
+        res = res.page(metadata.page)
     }
     let res = res.execute().await?;
     Ok(res)
@@ -159,13 +183,23 @@ pub async fn get_movie_list(
         return HttpResponse::BadRequest().finish();
     }
 
-    let page = info.page.unwrap_or(0u32);
-    let page_size = info.page_size.unwrap_or(10u8);
-    let content_provider = body.source.clone().unwrap_or_default();
+    let search_metadata = SearchQueryMetadata {
+        page: info.page.unwrap_or(0u32),
+        page_size: info.page_size.unwrap_or(10u8),
+        source: body.source.clone().unwrap_or_default(),
+        quality: body.quality.clone(),
+        minimum_rating: body.minimum_rating,
+        query_term: body.query_term.trim().into(),
+        genre: body.genre.clone(),
+        sort_by: body.sort_by.clone(),
+        order_by: body.order_by.clone(),
+        with_rt_ratings: body.with_rt_ratings.unwrap_or(false),
+    };
 
-    if content_provider == Source::YTS {
+
+    if search_metadata.source == Source::YTS {
         tracing::info!("Calling the YTS Handler");
-        let yts_res = query_yts_content_provider(page, page_size, &body.title).await;
+        let yts_res = query_yts_content_provider(&search_metadata).await;
         match yts_res {
             Ok(list) => return HttpResponse::Ok().json(list),
             Err(err) => {

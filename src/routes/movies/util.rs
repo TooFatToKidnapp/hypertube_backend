@@ -1,9 +1,6 @@
 use std::borrow::Cow;
 
-use actix_web::{
-    web,
-    Scope,
-};
+use actix_web::{web, Scope};
 use sqlx::PgPool;
 use validator::ValidationError;
 
@@ -29,4 +26,3 @@ pub fn validate_title(str: &str) -> Result<(), ValidationError> {
 
     Ok(())
 }
-
