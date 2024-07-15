@@ -5,8 +5,10 @@ use actix_web::{
 };
 use serde::Deserialize;
 use serde_json::json;
-use sqlx::PgPool;
+use sqlx::{PgPool, Row};
 use std::fmt;
+use tracing::{Instrument, Span};
+use uuid::Uuid;
 use validator::Validate;
 use yts_api::{ListMovies, MovieList};
 
@@ -51,38 +53,39 @@ impl fmt::Display for Genre {
             f,
             "{}",
             match self {
-                Genre::Action => "Action",
-                Genre::Drama => "Drama",
-                Genre::Thriller => "Thriller",
-                Genre::Crime => "Crime",
-                Genre::Adventure => "Adventure",
-                Genre::Comedy => "Comedy",
-                Genre::SciFi => "SciFi",
-                Genre::Romance => "Romance",
-                Genre::Fantasy => "Fantasy",
-                Genre::Horror => "Horror",
-                Genre::Mystery => "Mystery",
-                Genre::War => "War",
-                Genre::Animation => "Animation",
-                Genre::History => "History",
-                Genre::Family => "Family",
-                Genre::Western => "Western",
-                Genre::Sport => "Sport",
-                Genre::Documentary => "Documentary",
-                Genre::Biography => "Biography",
-                Genre::Musical => "Musical",
-                Genre::Music => "Music",
-                Genre::FilmNoir => "FilmNoir",
-                Genre::News => "News",
-                Genre::RealityTV => "RealityTV",
-                Genre::GameShow => "GameShow",
-                Genre::TalkShow => "TalkShow",
+                Genre::Action => "action",
+                Genre::Adventure => "adventure",
+                Genre::Animation => "animation",
+                Genre::Biography => "biography",
+                Genre::Crime => "crime",
+                Genre::Comedy => "comedy",
+                Genre::Drama => "drama",
+                Genre::Documentary => "documentary",
+                Genre::Family => "family",
+                Genre::Fantasy => "fantasy",
+                Genre::FilmNoir => "film-noir",
+                Genre::GameShow => "game-show",
+                Genre::History => "history",
+                Genre::Horror => "horror",
+                Genre::Musical => "musical",
+                Genre::Music => "music",
+                Genre::Mystery => "mystery",
+                Genre::News => "news",
+                Genre::RealityTV => "reality-tv",
+                Genre::Romance => "romance",
+                Genre::Sport => "sport",
+                Genre::SciFi => "sci-fi",
+                Genre::TalkShow => "talk-show",
+                Genre::Thriller => "thriller",
+                Genre::War => "war",
+                Genre::Western => "western",
             }
         )
     }
 }
 
-#[derive(Deserialize, Debug, Default, PartialEq, Clone)]
+#[derive(Deserialize, Debug, Default, PartialEq, Clone, sqlx::Type)]
+#[sqlx(type_name = "movie_source_type", rename_all = "UPPERCASE")]
 pub enum Source {
     #[default]
     YTS,
@@ -127,7 +130,7 @@ struct SearchQueryMetadata {
     pub genre: Option<Genre>,
     pub sort_by: Option<SortBy>,
     pub order_by: Option<SearchOrder>,
-    with_rt_ratings: bool,
+    pub with_rt_ratings: bool,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -150,15 +153,87 @@ pub enum SortBy {
 // title must not contain white space, replace space with '-'
 
 async fn query_yts_content_provider(
-    metadata: &SearchQueryMetadata
+    metadata: &SearchQueryMetadata,
 ) -> Result<MovieList, Box<dyn std::error::Error + Send + Sync>> {
     let mut yts_movie_client = ListMovies::new();
-    let mut res = yts_movie_client.limit(metadata.page_size).query_term(&metadata.query_term);
+    let mut res = yts_movie_client
+        .limit(metadata.page_size)
+        .query_term(&metadata.query_term);
     if metadata.page > 1 {
         res = res.page(metadata.page)
     }
     let res = res.execute().await?;
     Ok(res)
+}
+
+fn format_movie_list_response(ids: &Vec<String>, list: &MovieList) -> serde_json::Value {
+    let mut res = json!({
+        "data": {
+            "limit": list.limit,
+            "movie_count": list.movie_count,
+            "movies": []
+        }
+    });
+
+    let arr = res["data"]["movies"].as_array_mut().unwrap();
+
+    for movie in list.movies.iter() {
+        let mut movie_content = json!({
+            "genres": movie.genres,
+            "id": movie.id,
+            "imdb_code": movie.imdb_code,
+            "language": movie.language,
+            "large_cover_image": movie.large_cover_image,
+            "medium_cover_image": movie.medium_cover_image,
+            "small_cover_image": movie.small_cover_image,
+            "summary": movie.summary,
+            "synopsis": movie.synopsis,
+            "title": movie.title,
+            "title_english": movie.title_english,
+            "title_long": movie.title_long,
+            "year": movie.year,
+            "rating": movie.rating,
+            "watched": false
+        });
+
+        if ids.contains(&movie.imdb_code) {
+            movie_content["watched"] = json!(true);
+        }
+        arr.push(movie_content);
+    }
+    res
+}
+
+async fn get_watched_movies_ids(
+    list: &MovieList,
+    connection: &Data<PgPool>,
+    span: Span,
+) -> Result<Vec<String>, sqlx::Error> {
+    let movies_imdb_ids = list
+        .movies
+        .iter()
+        .map(|movie| format!("'{}'", movie.imdb_code))
+        .collect::<Vec<_>>();
+    let query = format!(
+        "SELECT * FROM watched_movies WHERE movie_imdb_code IN ({})",
+        movies_imdb_ids.join(", ")
+    );
+    let query_res = sqlx::query(query.as_str())
+        .fetch_all(connection.as_ref())
+        .instrument(span)
+        .await;
+
+    if let Err(err) = query_res {
+        return Err(err);
+    }
+
+    let data = query_res.unwrap();
+
+    let ids = data
+        .iter()
+        .map(|row| row.get::<String, &str>("movie_imdb_code"))
+        .collect();
+    Ok(ids)
 }
 
 pub async fn get_movie_list(
@@ -196,12 +271,11 @@ pub async fn get_movie_list(
         with_rt_ratings: body.with_rt_ratings.unwrap_or(false),
     };
 
-
     if search_metadata.source == Source::YTS {
         tracing::info!("Calling the YTS Handler");
         let yts_res = query_yts_content_provider(&search_metadata).await;
-        match yts_res {
-            Ok(list) => return HttpResponse::Ok().json(list),
+        let movie_list = match yts_res {
+            Ok(list) => list,
             Err(err) => {
                 tracing::error!("YTS HANDLER ERR {:#?}", err);
                 return HttpResponse::InternalServerError().json(json!({
@@ -209,6 +283,27 @@ pub async fn get_movie_list(
                 }));
             }
         };
+
+        let watched_movies_ids_res =
+            get_watched_movies_ids(&movie_list, &connection, query_span.clone()).await;
+
+        let ids = match watched_movies_ids_res {
+            Ok(ids) => {
+                tracing::info!("Got Watched Movies ids");
+                ids
+            }
+            Err(err) => {
+                tracing::error!("Database Error {:#?}", err);
+                return HttpResponse::InternalServerError().json(json!({
+                    "error": "Something went wrong"
+                }));
+            }
+        };
+
+        return HttpResponse::Ok().json(json!({
+            "data": movie_list
+        }));
+        return HttpResponse::Ok().json(movie_list);
     }
     HttpResponse::Ok().finish()
 }
