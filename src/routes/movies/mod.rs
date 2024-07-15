@@ -1,5 +1,5 @@
-mod get_movie_list;
+mod search_movies;
 mod util;
 
-use get_movie_list::*;
+use search_movies::*;
 pub use util::*;
