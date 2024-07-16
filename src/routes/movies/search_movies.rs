@@ -83,7 +83,7 @@ pub async fn get_movies_search(
         }
     } else if search_metadata.source == Source::MovieDb {
         tracing::info!("Calling the THE MOVIE DB Handler");
-        let result = movie_db_handler(&connection, query_span.clone(), &search_metadata).await;
+        let result: Result<serde_json::Value, String> = movie_db_handler(&connection, query_span.clone(), &search_metadata).await;
         match result {
             Ok(response) => {
                 tracing::info!("Got YTS search response");

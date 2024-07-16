@@ -1,7 +1,7 @@
 use super::get_movies_search;
 use crate::middleware::Authentication;
 use actix_web::web::Data;
-use actix_web::{web, Scope};
+use actix_web::{http, web, Scope};
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::{PgPool, Row};
@@ -280,41 +280,197 @@ pub async fn query_yts_content_provider(
     Ok(res)
 }
 
-
-pub async fn yts_movie_search_handler(connection: &Data<PgPool>, query_span: Span, search_params: &SearchQueryMetadata) -> Result<serde_json::Value, String> {
+pub async fn yts_movie_search_handler(
+    connection: &Data<PgPool>,
+    query_span: Span,
+    search_params: &SearchQueryMetadata,
+) -> Result<serde_json::Value, String> {
     let yts_res = query_yts_content_provider(search_params).await;
-        let movie_list = match yts_res {
-            Ok(list) => list,
-            Err(err) => {
-                tracing::error!("YTS HANDLER ERR");
-                    return Err(err.to_string());
-            }
-        };
-
-        if movie_list.movies.is_empty() {
-            return Ok(json!({
-                "limit": search_params.page_size,
-                "max_movie_count": 0,
-                "max_page_count": 0
-            }));
+    let movie_list = match yts_res {
+        Ok(list) => list,
+        Err(err) => {
+            tracing::error!("YTS HANDLER ERR");
+            return Err(err.to_string());
         }
+    };
 
-        let watched_movies_ids_res =
-            get_watched_movies_ids(&movie_list, &connection, query_span.clone()).await;
+    if movie_list.movies.is_empty() {
+        return Ok(json!({
+            "limit": search_params.page_size,
+            "max_movie_count": 0,
+            "max_page_count": 0
+        }));
+    }
 
-        let response = match watched_movies_ids_res {
-            Ok(ids) => {
-                tracing::info!("Got Watched Movies ids");
-                format_movie_list_response(&ids, &movie_list)
-            }
-            Err(err) => {
-                tracing::error!("Database Error");
-                return Err(err.to_string());
-            }
-        };
-        Ok(response)
+    let watched_movies_ids_res =
+        get_watched_movies_ids(&movie_list, &connection, query_span.clone()).await;
+
+    let response = match watched_movies_ids_res {
+        Ok(ids) => {
+            tracing::info!("Got Watched Movies ids");
+            format_movie_list_response(&ids, &movie_list)
+        }
+        Err(err) => {
+            tracing::error!("Database Error");
+            return Err(err.to_string());
+        }
+    };
+    Ok(response)
 }
 
-pub async fn movie_db_handler(_connection: &Data<PgPool>, _query_span: Span, _search_params: &SearchQueryMetadata) -> Result<serde_json::Value, String> {
+async fn get_movie_db_watched_ids(
+    movie_arr: &Vec<serde_json::Value>,
+    connection: &Data<PgPool>,
+    span: Span,
+) -> Result<Vec<String>, sqlx::Error> {
+
+    let movies_imdb_ids: Vec<String> = movie_arr
+    .iter()
+    .map(|m| format!("'{}'", m["id"].as_str().unwrap()))
+    .collect();
+    let query = format!(
+        "SELECT * FROM watched_movies WHERE movie_id IN ({})",
+        movies_imdb_ids.join(", ")
+    );
+    let query_res = sqlx::query(query.as_str())
+        .fetch_all(connection.as_ref())
+        .instrument(span)
+        .await;
+
+    if let Err(err) = query_res {
+        return Err(err);
+    }
+    let data = query_res.unwrap();
+
+    let ids = data
+        .iter()
+        .map(|row| row.get::<String, &str>("movie_imdb_code"))
+        .collect();
+    Ok(ids)
+}
+
+// https://www.postman.com/gold-meadow-82853/workspace/tmdb-assignment/collection/5586593-2e0561c2-f870-4b1b-8c17-aaf7cf6c9696
+// https://developer.themoviedb.org/reference
+// image url: https://image.tmdb.org/t/p/w500/{image path} // https://image.tmdb.org/t/p/original{image_path}
+// movie information:  https://api.themoviedb.org/3/find/{imdb id} => get movie id =>  https://api.themoviedb.org/3/movie/{movie id}
+// movie search  https://api.themoviedb.org/3/search  {query: {film name}, page: {}}
+
+pub async fn movie_db_handler(
+    connection: &Data<PgPool>,
+    query_span: Span,
+    search_params: &SearchQueryMetadata,
+) -> Result<serde_json::Value, String> {
+    let search_url = format!(
+        "https://api.themoviedb.org/3/search/movie?query={}",
+        search_params.query_term
+    );
+    let movie_db_token = std::env::var("MOVIE_DB_AUTH_TOKEN").unwrap();
+    let client = reqwest::Client::new();
+    let search_query_res = client
+        .get(search_url)
+        .header(
+            http::header::AUTHORIZATION,
+            format!("Bearer {}", movie_db_token),
+        )
+        .send()
+        .await;
+
+    let response = match search_query_res {
+        Ok(res) => {
+            tracing::info!("Got Movie db search response");
+            res
+        }
+        Err(err) => {
+            tracing::error!("MOVIE DB request error {:#?}", err);
+            return Err(err.to_string());
+        }
+    };
+
+    let res_body_res = response.json::<serde_json::Value>().await;
+    if let Err(res_err) = res_body_res {
+        tracing::error!("Parsing response body error {:#?}", res_err);
+        return Err("Failed to parse response body".to_string());
+    }
+
+    let res = res_body_res.unwrap();
+
+    if res["results"].as_array().is_none() {
+        return Err("no movie list in response".to_string());
+    }
+    let movie_arr = res["results"].as_array().unwrap();
+
+    let mut client_response = json!({
+        "limit": movie_arr.len(),
+        "max_movie_count": res["total_results"].as_i64().unwrap_or(0),
+        "max_page_count": res["total_pages"].as_i64().unwrap_or(0),
+        "movies": []
+    });
+
+    if movie_arr.is_empty() {
+        return  Ok(client_response);
+    }
+
+    let watched_movies_ids = match get_movie_db_watched_ids(&movie_arr, &connection, query_span).await {
+        Ok(ids) => {
+            tracing::info!("Got watched movies ids");
+            ids
+        },
+        Err(err) => {
+            tracing::info!("Movie db database error {:#?}", err);
+            return Err(err.to_string());
+        }
+    };
+    println!("watched movies arr {}", watched_movies_ids);
+
+    let mut client_res_movie_arr = client_response["movies"].as_array_mut().unwrap();
+    /**
+     *
+     *         {
+            "adult": false,
+            "backdrop_path": "/iF9qJ9EyiKip01DsmmKYI2wcD48.jpg",
+            "genre_ids": [
+                12,
+                10751,
+                28
+            ],
+            "id": 24767,
+            "original_language": "en",
+            "original_title": "Iron Will",
+            "overview": "When Will Stoneman's father dies, he is left alone to take care of his mother and their land. Needing money to maintain it, he decides to join a cross country dogsled race. This race will require days of racing for long hours, through harsh weather and terrain. This young man will need a lot of courage and a strong will to complete this race.",
+            "popularity": 16.271,
+            "poster_path": "/6Ujbtp0NklUoQ67s32HyW6R5540.jpg",
+            "release_date": "1994-01-14",
+            "title": "Iron Will",
+            "video": false,
+            "vote_average": 6.6,
+            "vote_count": 256
+        },
+
+     */
+
+    for movie in movie_arr.iter() {
+        let mut movie_content = (json!({
+            // "genres": movie.genres,
+            "id": movie["id"].as_str().unwrap(),
+            // "imdb_code": movie.imdb_code,
+            "language": movie["original_language"].as_str().unwrap(),
+            "large_cover_image": format!("https://image.tmdb.org/t/p/original/{}", movie["poster_path"].as_str().unwrap()),
+            "medium_cover_image": format!("https://image.tmdb.org/t/p/w500/{}", movie["poster_path"].as_str().unwrap()),
+            "small_cover_image": None::<String>,
+            "summary": movie["overview"].as_str().unwrap(),
+            "synopsis": movie["overview"].as_str().unwrap(),
+            "title": movie["original_title"].as_str().unwrap(),
+            "title_english": movie["title"].as_str().unwrap(),
+            "title_long": None::<String>,
+            // "year": movie.year,
+            // "rating": movie.rating,
+            "watched": false
+        }));
+        if watched_movies_ids.contains(movie_content["id"].as_str().unwrap().into()) {
+            movie_content["watched"] = json!(true);
+        }
+        client_res_movie_arr.push(movie_content);
+    }
+
     todo!()
 }
