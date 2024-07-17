@@ -1,9 +1,9 @@
-use super::get_movies_search;
+use super::{get_movie_info, get_movies_search};
 use crate::middleware::Authentication;
 use actix_web::web::Data;
 use actix_web::{http, web, Scope};
 use serde::Deserialize;
-use serde_json::json;
+use serde_json::{json, Number, Value};
 use sqlx::{PgPool, Row};
 use std::borrow::Cow;
 use std::fmt;
@@ -15,7 +15,7 @@ use yts_api::{ListMovies, MovieList, Order, Quality, Sort};
 // https://popcornofficial.docs.apiary.io/#reference/show/get-page/pages
 // https://crates.io/crates/yts-api
 // https://developer.themoviedb.org/docs/getting-started
-
+// https://popcorn-official.github.io/popcorn-api/manual/tutorial.html#-trakt-tv-https-trakt-tv-
 #[derive(Deserialize, Debug, Clone)]
 pub enum Genre {
     Action,
@@ -88,7 +88,6 @@ impl fmt::Display for Genre {
 pub enum Source {
     #[default]
     YTS,
-    PopcornOfficial,
     MovieDb,
 }
 
@@ -133,12 +132,19 @@ pub enum SortBy {
 }
 
 pub fn movie_source(db_pool: &PgPool) -> Scope {
-    web::scope("/movies").route(
-        "/search",
-        web::post()
-            .to(get_movies_search)
-            .wrap(Authentication::new(db_pool.clone())),
-    )
+    web::scope("/movies")
+        .route(
+            "/search",
+            web::post()
+                .to(get_movies_search)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/{id}/{source}",
+            web::get()
+                .to(get_movie_info)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
 }
 
 pub fn validate_title(str: &str) -> Result<(), ValidationError> {
@@ -166,16 +172,10 @@ pub async fn get_watched_movies_ids(
         movies_imdb_ids.join(", ")
     );
 
-    let query_res = sqlx::query(query.as_str())
+    let data = sqlx::query(query.as_str())
         .fetch_all(connection.as_ref())
         .instrument(span)
-        .await;
-
-    if let Err(err) = query_res {
-        return Err(err);
-    }
-
-    let data = query_res.unwrap();
+        .await?;
 
     let ids = data
         .iter()
@@ -184,7 +184,7 @@ pub async fn get_watched_movies_ids(
     Ok(ids)
 }
 
-pub fn format_movie_list_response(ids: &Vec<String>, list: &MovieList) -> serde_json::Value {
+pub fn format_movie_list_response(ids: &[String], list: &MovieList) -> serde_json::Value {
     let mut res = json!({
             "limit": list.limit,
             "max_movie_count": list.movie_count,
@@ -228,12 +228,14 @@ pub fn format_movie_list_response(ids: &Vec<String>, list: &MovieList) -> serde_
 pub async fn query_yts_content_provider(
     metadata: &SearchQueryMetadata,
 ) -> Result<MovieList, Box<dyn std::error::Error + Send + Sync>> {
+    let search_query = metadata.query_term.to_string().replace(' ', "-");
     println!("metaData : {:#?}", metadata);
-
+    println!("new search query {}", search_query);
     let mut yts_movie_client = ListMovies::new();
+
     let mut res = yts_movie_client
         .limit(metadata.page_size)
-        .query_term(&metadata.query_term)
+        .query_term(search_query.as_str())
         .wirth_rt_ratings(metadata.with_rt_ratings);
     let mut genre_str = String::new();
     if metadata.genre.is_some() {
@@ -303,7 +305,7 @@ pub async fn yts_movie_search_handler(
     }
 
     let watched_movies_ids_res =
-        get_watched_movies_ids(&movie_list, &connection, query_span.clone()).await;
+        get_watched_movies_ids(&movie_list, connection, query_span.clone()).await;
 
     let response = match watched_movies_ids_res {
         Ok(ids) => {
@@ -319,35 +321,52 @@ pub async fn yts_movie_search_handler(
 }
 
 async fn get_movie_db_watched_ids(
-    movie_arr: &Vec<serde_json::Value>,
+    movie_arr: &[serde_json::Value],
     connection: &Data<PgPool>,
     span: Span,
 ) -> Result<Vec<String>, sqlx::Error> {
-
     let movies_imdb_ids: Vec<String> = movie_arr
-    .iter()
-    .map(|m| format!("'{}'", m["id"].as_str().unwrap()))
-    .collect();
+        .iter()
+        .map(|m| format!("'{}'", m["id"].as_number().unwrap_or(&Number::from(0))))
+        .collect();
+    println!("id list : {:#?}", movies_imdb_ids);
     let query = format!(
         "SELECT * FROM watched_movies WHERE movie_id IN ({})",
         movies_imdb_ids.join(", ")
     );
-    let query_res = sqlx::query(query.as_str())
+    let data = sqlx::query(query.as_str())
         .fetch_all(connection.as_ref())
         .instrument(span)
-        .await;
-
-    if let Err(err) = query_res {
-        return Err(err);
-    }
-    let data = query_res.unwrap();
+        .await?;
 
     let ids = data
         .iter()
-        .map(|row| row.get::<String, &str>("movie_imdb_code"))
+        .map(|row| row.get::<String, &str>("movie_id"))
         .collect();
     Ok(ids)
 }
+
+/*
+    Object {
+        "adult": Bool(false),
+        "backdrop_path": String("/lvoACuXwhmOCr0I29QflIhYGPjd.jpg"),
+        "genre_ids": Array [
+            Number(16),
+            Number(35),
+        ],
+        "id": Number(160446),
+        "original_language": String("ja"),
+        "original_title": String("クレヨンしんちゃん 嵐を呼ぶ！夕陽のカスカベボーイズ"),
+        "overview": String("At a strange movie theater, everyone gets sucked into the film they're watching. The longer they stay, the less they remember about the real world!"),
+        "popularity": Number(14.383),
+        "poster_path": String("/aKn6V5ZxAV9REWefExl9LoZLFz8.jpg"),
+        "release_date": String("2004-04-16"),
+        "title": String("Crayon Shin-chan: Invoke a Storm! The Kasukabe Boys of the Evening Sun"),
+        "video": Bool(false),
+        "vote_average": Number(7.6),
+        "vote_count": Number(16),
+    },
+*/
 
 // https://www.postman.com/gold-meadow-82853/workspace/tmdb-assignment/collection/5586593-2e0561c2-f870-4b1b-8c17-aaf7cf6c9696
 // https://developer.themoviedb.org/reference
@@ -361,8 +380,9 @@ pub async fn movie_db_handler(
     search_params: &SearchQueryMetadata,
 ) -> Result<serde_json::Value, String> {
     let search_url = format!(
-        "https://api.themoviedb.org/3/search/movie?query={}",
-        search_params.query_term
+        "https://api.themoviedb.org/3/search/movie?query={}&include_adult=false&language=en-US&page={}",
+        search_params.query_term,
+        search_params.page
     );
     let movie_db_token = std::env::var("MOVIE_DB_AUTH_TOKEN").unwrap();
     let client = reqwest::Client::new();
@@ -407,70 +427,100 @@ pub async fn movie_db_handler(
     });
 
     if movie_arr.is_empty() {
-        return  Ok(client_response);
+        return Ok(client_response);
     }
 
-    let watched_movies_ids = match get_movie_db_watched_ids(&movie_arr, &connection, query_span).await {
-        Ok(ids) => {
-            tracing::info!("Got watched movies ids");
-            ids
-        },
-        Err(err) => {
-            tracing::info!("Movie db database error {:#?}", err);
-            return Err(err.to_string());
-        }
-    };
-    println!("watched movies arr {}", watched_movies_ids);
+    let watched_movies_ids =
+        match get_movie_db_watched_ids(movie_arr, connection, query_span).await {
+            Ok(ids) => {
+                tracing::info!("Got watched movies ids");
+                ids
+            }
+            Err(err) => {
+                tracing::info!("Movie db database error {:#?}", err);
+                return Err(err.to_string());
+            }
+        };
+    println!("watched movies arr {:#?}", watched_movies_ids);
 
-    let mut client_res_movie_arr = client_response["movies"].as_array_mut().unwrap();
-    /**
-     *
-     *         {
-            "adult": false,
-            "backdrop_path": "/iF9qJ9EyiKip01DsmmKYI2wcD48.jpg",
-            "genre_ids": [
-                12,
-                10751,
-                28
-            ],
-            "id": 24767,
-            "original_language": "en",
-            "original_title": "Iron Will",
-            "overview": "When Will Stoneman's father dies, he is left alone to take care of his mother and their land. Needing money to maintain it, he decides to join a cross country dogsled race. This race will require days of racing for long hours, through harsh weather and terrain. This young man will need a lot of courage and a strong will to complete this race.",
-            "popularity": 16.271,
-            "poster_path": "/6Ujbtp0NklUoQ67s32HyW6R5540.jpg",
-            "release_date": "1994-01-14",
-            "title": "Iron Will",
-            "video": false,
-            "vote_average": 6.6,
-            "vote_count": 256
-        },
-
-     */
+    let client_res_movie_arr = client_response["movies"].as_array_mut().unwrap();
 
     for movie in movie_arr.iter() {
-        let mut movie_content = (json!({
-            // "genres": movie.genres,
-            "id": movie["id"].as_str().unwrap(),
-            // "imdb_code": movie.imdb_code,
-            "language": movie["original_language"].as_str().unwrap(),
-            "large_cover_image": format!("https://image.tmdb.org/t/p/original/{}", movie["poster_path"].as_str().unwrap()),
-            "medium_cover_image": format!("https://image.tmdb.org/t/p/w500/{}", movie["poster_path"].as_str().unwrap()),
+        if movie["id"].is_null() {
+            continue;
+        }
+        let (large_cover_image, medium_cover_image) = {
+            if let Some(url) = movie["poster_path"].as_str() {
+                (
+                    Some(format!("https://image.tmdb.org/t/p/original{}", url)),
+                    Some(format!("https://image.tmdb.org/t/p/w500{}", url)),
+                )
+            } else {
+                (None::<String>, None::<String>)
+            }
+        };
+        let genres = {
+            if movie["genre_ids"].as_array().is_some() {
+                Some(map_movie_bd_genre_code_with_value(
+                    movie["genre_ids"].as_array().unwrap(),
+                ))
+            } else {
+                None::<Vec<Option<&str>>>
+            }
+        };
+
+        let mut movie_content = json!({
+            "genres": genres,
+            "id": movie["id"].as_number(),
+            "language": movie["original_language"].as_str(),
+            "large_cover_image": large_cover_image,
+            "medium_cover_image": medium_cover_image,
             "small_cover_image": None::<String>,
-            "summary": movie["overview"].as_str().unwrap(),
-            "synopsis": movie["overview"].as_str().unwrap(),
-            "title": movie["original_title"].as_str().unwrap(),
-            "title_english": movie["title"].as_str().unwrap(),
+            "summary": movie["overview"].as_str(),
+            "synopsis": movie["overview"].as_str(),
+            "title": movie["original_title"].as_str(),
+            "title_english": movie["title"].as_str(),
             "title_long": None::<String>,
-            // "year": movie.year,
             // "rating": movie.rating,
             "watched": false
-        }));
-        if watched_movies_ids.contains(movie_content["id"].as_str().unwrap().into()) {
+        });
+        if watched_movies_ids.contains(&movie_content["id"].as_number().unwrap().to_string()) {
             movie_content["watched"] = json!(true);
         }
         client_res_movie_arr.push(movie_content);
     }
 
-    todo!()
+    Ok(client_response)
+}
+
+fn map_movie_bd_genre_code_with_value(codes: &[Value]) -> Vec<Option<&str>> {
+    let mut genres = Vec::<Option<&str>>::new();
+
+    for code in codes.iter() {
+        let code_nb = code.as_i64().unwrap_or(0);
+        let genre = match code_nb {
+            28 => Some("Action"),
+            12 => Some("Adventure"),
+            16 => Some("Animation"),
+            35 => Some("Comedy"),
+            80 => Some("Crime"),
+            99 => Some("Documentary"),
+            18 => Some("Drama"),
+            10751 => Some("Family"),
+            14 => Some("Fantasy"),
+            36 => Some("History"),
+            27 => Some("Horror"),
+            10402 => Some("Music"),
+            9648 => Some("Mystery"),
+            10749 => Some("Romance"),
+            878 => Some("Science Fiction"),
+            10770 => Some("TV Movie"),
+            53 => Some("Thriller"),
+            10752 => Some("War"),
+            37 => Some("Western"),
+            _ => None,
+        };
+        genres.push(genre);
+    }
+    genres
 }

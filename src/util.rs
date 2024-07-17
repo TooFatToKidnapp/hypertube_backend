@@ -22,4 +22,5 @@ pub fn check_for_necessary_env() {
     env::var("S3_PROVIDER_URL").expect("S3_PROVIDER_URL env must be set");
     env::var("S3_BUCKET_URL").expect("S3_BUCKET_URL env must be set");
     env::var("S3_REGION").expect("S3_REGION env must be set");
+    env::var("MOVIE_DB_AUTH_TOKEN").expect("MOVIE_DB_AUTH_TOKEN env must be set");
 }

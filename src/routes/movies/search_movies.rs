@@ -53,10 +53,10 @@ pub async fn get_movies_search(
     }
 
     let search_metadata = SearchQueryMetadata {
-        page: info.page.unwrap_or(0u32),
+        page: info.page.unwrap_or(1u32),
         page_size: info.page_size.unwrap_or(10u8),
         source: body.source.clone().unwrap_or_default(),
-        quality: body.quality.clone(),
+        quality: body.quality,
         query_term: body.query_term.trim().into(),
         genre: body.genre.clone(),
         sort_by: body.sort_by.clone(),
@@ -66,14 +66,15 @@ pub async fn get_movies_search(
 
     if search_metadata.source == Source::YTS {
         tracing::info!("Calling the YTS Handler");
-        let result = yts_movie_search_handler(&connection, query_span.clone(), &search_metadata).await;
+        let result =
+            yts_movie_search_handler(&connection, query_span.clone(), &search_metadata).await;
         match result {
             Ok(response) => {
                 tracing::info!("Got YTS search response");
-                return  HttpResponse::Ok().json(json!({
+                return HttpResponse::Ok().json(json!({
                     "data": response
                 }));
-            },
+            }
             Err(err) => {
                 tracing::error!("YTS ERROR");
                 return HttpResponse::BadRequest().json(json!({
@@ -83,22 +84,22 @@ pub async fn get_movies_search(
         }
     } else if search_metadata.source == Source::MovieDb {
         tracing::info!("Calling the THE MOVIE DB Handler");
-        let result: Result<serde_json::Value, String> = movie_db_handler(&connection, query_span.clone(), &search_metadata).await;
+        let result: Result<serde_json::Value, String> =
+            movie_db_handler(&connection, query_span.clone(), &search_metadata).await;
         match result {
             Ok(response) => {
-                tracing::info!("Got YTS search response");
-                return  HttpResponse::Ok().json(json!({
+                tracing::info!("Got Movie DB search response");
+                return HttpResponse::Ok().json(json!({
                     "data": response
                 }));
-            },
+            }
             Err(err) => {
-                tracing::error!("YTS ERROR");
+                tracing::error!("Movie DB ERROR");
                 return HttpResponse::BadRequest().json(json!({
                     "error": err
                 }));
             }
         }
-
     }
     HttpResponse::BadRequest().finish()
 }
