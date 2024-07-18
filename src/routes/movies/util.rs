@@ -430,17 +430,17 @@ pub async fn movie_db_handler(
         return Ok(client_response);
     }
 
-    let watched_movies_ids =
-        match get_movie_db_watched_ids(movie_arr, connection, query_span).await {
-            Ok(ids) => {
-                tracing::info!("Got watched movies ids");
-                ids
-            }
-            Err(err) => {
-                tracing::info!("Movie db database error {:#?}", err);
-                return Err(err.to_string());
-            }
-        };
+    let watched_movies_ids = match get_movie_db_watched_ids(movie_arr, connection, query_span).await
+    {
+        Ok(ids) => {
+            tracing::info!("Got watched movies ids");
+            ids
+        }
+        Err(err) => {
+            tracing::info!("Movie db database error {:#?}", err);
+            return Err(err.to_string());
+        }
+    };
     println!("watched movies arr {:#?}", watched_movies_ids);
 
     let client_res_movie_arr = client_response["movies"].as_array_mut().unwrap();
@@ -493,7 +493,7 @@ pub async fn movie_db_handler(
     Ok(client_response)
 }
 
-fn map_movie_bd_genre_code_with_value(codes: &[Value]) -> Vec<Option<&str>> {
+pub fn map_movie_bd_genre_code_with_value(codes: &[Value]) -> Vec<Option<&str>> {
     let mut genres = Vec::<Option<&str>>::new();
 
     for code in codes.iter() {
