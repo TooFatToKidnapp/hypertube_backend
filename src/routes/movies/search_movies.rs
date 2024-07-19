@@ -59,7 +59,7 @@ pub async fn get_movies_search(
         quality: body.quality,
         query_term: body.query_term.trim().into(),
         genre: body.genre.clone(),
-        sort_by: body.sort_by.clone(),
+        sort_by: Some(body.sort_by.clone().unwrap_or_default()),
         order_by: body.order_by.clone(),
         with_rt_ratings: body.with_rt_ratings.unwrap_or(false),
     };

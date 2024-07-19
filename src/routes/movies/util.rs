@@ -46,6 +46,7 @@ pub enum Genre {
     TalkShow,
 }
 
+
 impl fmt::Display for Genre {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -99,6 +100,7 @@ pub enum MovieQuality {
     Q3D,
 }
 
+
 #[derive(Default, Deserialize, Debug, Clone)]
 pub enum SearchOrder {
     #[default]
@@ -119,8 +121,9 @@ pub struct SearchQueryMetadata {
     pub with_rt_ratings: bool,
 }
 
-#[derive(Deserialize, Debug, Clone)]
+#[derive(Deserialize, Debug, Clone, Default)]
 pub enum SortBy {
+    #[default]
     Title,
     Year,
     Rating,
