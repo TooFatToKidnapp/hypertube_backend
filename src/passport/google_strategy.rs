@@ -21,9 +21,9 @@ pub async fn google(passport: Data<AppState>) -> HttpResponse {
     let mut auth = passport.google_passport.write().await;
     auth.authenticate("google");
     let url = auth.generate_redirect_url();
-    HttpResponse::SeeOther()
-        .append_header((http::header::LOCATION, url))
-        .finish()
+    HttpResponse::Ok().json(json!({
+        "redirect_url" : url
+    }))
 }
 
 pub async fn authenticate_google(

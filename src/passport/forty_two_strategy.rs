@@ -103,7 +103,7 @@ pub async fn forty_tow(passport: Data<AppState>) -> HttpResponse {
     auth.authenticate("42");
     let url = auth.generate_redirect_url();
     HttpResponse::Ok().json(json!({
-        "url" : url
+        "redirect_url" : url
     }))
 }
 
