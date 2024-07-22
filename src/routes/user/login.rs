@@ -1,5 +1,6 @@
 use crate::{middleware::User, routes::create_session};
 use actix_web::{
+    cookie::SameSite,
     web::{Data, Json},
     HttpResponse,
 };
@@ -102,7 +103,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
         username: user.username,
         session_id: None,
     };
-    let session_result = create_session(connection.as_ref(), user.clone()).await;
+    let session_result = create_session(connection.as_ref(), user.clone(), SameSite::Strict).await;
     if session_result.is_err() {
         tracing::error!(
             "Failed to generate user session  {}",

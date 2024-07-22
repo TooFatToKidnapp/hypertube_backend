@@ -1,5 +1,6 @@
 use actix_web::HttpResponse;
 use actix_web::{
+    cookie::SameSite,
     http,
     web::{self, Data},
 };
@@ -101,9 +102,9 @@ pub async fn forty_tow(passport: Data<AppState>) -> HttpResponse {
     let mut auth = passport.passport_42.write().await;
     auth.authenticate("42");
     let url = auth.generate_redirect_url();
-    HttpResponse::SeeOther()
-        .append_header((http::header::LOCATION, url))
-        .finish()
+    HttpResponse::Ok().json(json!({
+        "url" : url
+    }))
 }
 
 pub async fn authenticate_forty_two(
@@ -184,7 +185,8 @@ pub async fn authenticate_forty_two(
                 username: user.username,
                 session_id: None,
             };
-            let session_result = create_session(connection.as_ref(), user.clone()).await;
+            let session_result =
+                create_session(connection.as_ref(), user.clone(), SameSite::None).await;
             if session_result.is_err() {
                 tracing::error!(
                     "Failed to generate user session  {}",
@@ -194,20 +196,10 @@ pub async fn authenticate_forty_two(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok()
+            HttpResponse::SeeOther()
                 .cookie(session_result.unwrap())
-                .json(json!({
-                    "data" : {
-                        "id": user.id.to_string(),
-                        "email": user.email,
-                        "first_name": user.first_name,
-                        "last_name": user.last_name,
-                        "image_url": user.image_url,
-                        "created_at": user.created_at.to_string(),
-                        "updated_at": user.updated_at.to_string(),
-                        "username" : user.username,
-                    }
-                }))
+                .insert_header((http::header::LOCATION, "http://127.0.0.1:3000/"))
+                .finish()
         }
         Err(sqlx::Error::RowNotFound) => {
             tracing::info!("42 Sign up event. user email was not found in the database");
@@ -220,7 +212,7 @@ pub async fn authenticate_forty_two(
                 }));
             }
             let user_name = user_name.as_str().unwrap();
-            let query_res =   sqlx::query!(
+            let query_res = sqlx::query!(
                 r#"
                     INSERT INTO users (id, username, email, first_name, last_name, created_at, updated_at)
                     VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -256,7 +248,8 @@ pub async fn authenticate_forty_two(
                 username: user_res.username,
                 session_id: None,
             };
-            let session_result = create_session(connection.as_ref(), user.clone()).await;
+            let session_result =
+                create_session(connection.as_ref(), user.clone(), SameSite::None).await;
             if session_result.is_err() {
                 tracing::error!(
                     "Failed to generate user session  {}",
@@ -266,20 +259,10 @@ pub async fn authenticate_forty_two(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok()
+            HttpResponse::SeeOther()
                 .cookie(session_result.unwrap())
-                .json(json!({
-                    "data" : {
-                        "id": user.id.to_string(),
-                        "email": user.email,
-                        "first_name": user.first_name,
-                        "image_url": user.image_url,
-                        "last_name": user.last_name,
-                        "created_at": user.created_at.to_string(),
-                        "updated_at": user.updated_at.to_string(),
-                        "username" : user.username,
-                    }
-                }))
+                .insert_header((http::header::LOCATION, "http://127.0.0.1:3000/"))
+                .finish()
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);
