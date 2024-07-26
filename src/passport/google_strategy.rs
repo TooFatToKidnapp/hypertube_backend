@@ -186,15 +186,13 @@ pub fn generate_google_passport() -> PassPortBasicClient {
     let mut passport = PassPortBasicClient::default();
     let scope = env::var("GOOGLE_CLIENT_SCOPE").unwrap();
     let scopes: Vec<&str> = scope.split(',').collect();
-    let mut backend_url = env::var("BACKEND_URL").unwrap();
-    backend_url.push_str("/redirect/google");
     passport.using(
         "google",
         GoogleStrategy::new(
             env::var("GOOGLE_CLIENT_ID").unwrap().as_str(),
             env::var("GOOGLE_CLIENT_SECRET").unwrap().as_str(),
             scopes,
-            backend_url.as_str(),
+            format!("{}/google/waiting", std::env::var("FRONTEND_URL").unwrap()).as_str(),
             env::var("FAILURE_REDIRECT_URI").unwrap().as_str(),
         ),
     );

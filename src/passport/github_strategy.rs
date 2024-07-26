@@ -239,15 +239,13 @@ pub fn generate_github_passport() -> PassPortBasicClient {
     let mut passport = PassPortBasicClient::default();
     let scope = env::var("CLIENT_SCOPE_GITHUB").unwrap();
     let scopes: Vec<&str> = scope.split(',').collect();
-    let mut backend_url = env::var("BACKEND_URL").unwrap();
-    backend_url.push_str("/redirect/github");
     passport.using(
         "github",
         GithubStrategy::new(
             env::var("CLIENT_ID_GITHUB").unwrap().as_str(),
             env::var("CLIENT_SECRET_GITHUB").unwrap().as_str(),
             scopes,
-            backend_url.as_str(),
+            format!("{}/github/waiting", std::env::var("FRONTEND_URL").unwrap()).as_str(),
             env::var("FAILURE_REDIRECT_URI").unwrap().as_str(),
         ),
     );

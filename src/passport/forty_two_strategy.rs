@@ -281,15 +281,12 @@ pub async fn authenticate_forty_two(
 
 pub fn generate_forty_two_passport() -> PassPortBasicClient {
     let mut passport = PassPortBasicClient::default();
-    let mut backend_url = env::var("BACKEND_URL").unwrap();
-    backend_url.push_str("/redirect/42");
-
     passport.using(
         "42",
         FortyTwoStrategy::new(
             env::var("CLIENT_UID_42").unwrap(),
             env::var("CLIENT_SECRET_42").unwrap(),
-            backend_url.as_str(),
+            format!("{}/42/waiting", std::env::var("FRONTEND_URL").unwrap()).as_str(),
             env::var("FAILURE_REDIRECT_URI").unwrap(),
             Vec::new(),
         ),
