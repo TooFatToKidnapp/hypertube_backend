@@ -154,13 +154,7 @@ pub async fn authenticate_github(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::SeeOther()
-                .cookie(session_result.unwrap())
-                .insert_header((
-                    http::header::LOCATION,
-                    std::env::var("FRONTEND_URL").unwrap(),
-                ))
-                .finish()
+            HttpResponse::Ok().cookie(session_result.unwrap()).finish()
         }
         Err(sqlx::Error::RowNotFound) => {
             tracing::info!("Github Sign up event. user email was not found in the database");
@@ -218,13 +212,7 @@ pub async fn authenticate_github(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::SeeOther()
-                .cookie(session_result.unwrap())
-                .insert_header((
-                    http::header::LOCATION,
-                    std::env::var("FRONTEND_URL").unwrap(),
-                ))
-                .finish()
+            HttpResponse::Ok().cookie(session_result.unwrap()).finish()
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);
