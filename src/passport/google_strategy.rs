@@ -103,7 +103,10 @@ pub async fn authenticate_google(
             }
             HttpResponse::SeeOther()
                 .cookie(session_result.unwrap())
-                .insert_header((http::header::LOCATION, "http://127.0.0.1:3000/"))
+                .insert_header((
+                    http::header::LOCATION,
+                    std::env::var("FRONTEND_URL").unwrap(),
+                ))
                 .finish()
         }
         Err(sqlx::Error::RowNotFound) => {
@@ -164,7 +167,10 @@ pub async fn authenticate_google(
             }
             HttpResponse::SeeOther()
                 .cookie(session_result.unwrap())
-                .insert_header((http::header::LOCATION, "http://127.0.0.1:3000/"))
+                .insert_header((
+                    http::header::LOCATION,
+                    std::env::var("FRONTEND_URL").unwrap(),
+                ))
                 .finish()
         }
         Err(err) => {
