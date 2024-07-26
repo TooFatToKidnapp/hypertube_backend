@@ -46,7 +46,6 @@ pub enum Genre {
     TalkShow,
 }
 
-
 impl fmt::Display for Genre {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(
@@ -99,7 +98,6 @@ pub enum MovieQuality {
     Q2160p,
     Q3D,
 }
-
 
 #[derive(Default, Deserialize, Debug, Clone)]
 pub enum SearchOrder {
