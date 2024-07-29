@@ -7,9 +7,11 @@ use serde_json::{json, Number, Value};
 use sqlx::{PgPool, Row};
 use std::borrow::Cow;
 use std::fmt;
+use std::path::Display;
 use tracing::{Instrument, Span};
 use validator::ValidationError;
 use yts_api::{ListMovies, MovieList, Order, Quality, Sort};
+use crate::routes::download_torrent;
 
 // https://ww4.yts.nz/api
 // https://popcornofficial.docs.apiary.io/#reference/show/get-page/pages
@@ -91,6 +93,15 @@ pub enum Source {
     MovieDb,
 }
 
+impl Into<String> for Source {
+    fn into(self) -> String {
+        match self {
+            Self::YTS => "YTS".to_string(),
+            Self::MovieDb => "MOVIE_DB".to_string()
+        }
+    }
+}
+
 #[derive(Deserialize, Copy, Clone, Debug)]
 pub enum MovieQuality {
     Q720p,
@@ -144,6 +155,12 @@ pub fn movie_source(db_pool: &PgPool) -> Scope {
             "/{id}/{source}",
             web::get()
                 .to(get_movie_info)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/torrent",
+            web::post()
+                .to(download_torrent)
                 .wrap(Authentication::new(db_pool.clone())),
         )
 }

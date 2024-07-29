@@ -1,4 +1,4 @@
-CREATE TYPE movie_source_type AS ENUM ('YTS', 'POPCORN_OFFICIAL', 'MOVIE_DB');
+CREATE TYPE movie_source_type AS ENUM ('YTS', 'MOVIEDB');
 
 CREATE TABLE watched_movies(
   movie_id INT NOT NULL,

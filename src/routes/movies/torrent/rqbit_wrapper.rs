@@ -6,11 +6,13 @@ pub struct RqbitWrapper {
     pub download_path: String,
 }
 
+#[derive(Debug)]
 pub struct SubInfo {
     pub language: String,
     pub path: String,
 }
 
+#[derive(Debug)]
 pub struct FileInfo {
     pub id: String,
     pub path: String,
@@ -72,16 +74,19 @@ impl RqbitWrapper {
             Ok(res) => match res.json::<Value>().await {
                 Ok(body) => body,
                 Err(err) => {
+                    tracing::error!("{:#?}", err);
                     return Err("Error: Failed to get request body".to_string());
                 }
             },
             Err(err) => {
+                tracing::error!("{:#?}", err);
                 return Err("Error: Failed to request torrent client".to_string());
             }
         };
+        println!("{:#?}", response);
         let torrent_id = match response["id"].as_number() {
             Some(id) => id.to_string(),
-            None => return Err("Error: Not torrent id in response body".to_string()),
+            None => return Err("Error: No torrent id in response body".to_string()),
         };
         let torrent_path = {
             if output_folder.is_none() {
