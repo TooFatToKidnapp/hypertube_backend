@@ -2,12 +2,12 @@ use super::torrent::RqbitWrapper;
 use super::{Source, SubInfo};
 use actix_web::web::Json;
 use actix_web::{web::Data, HttpResponse};
+use chrono::Utc;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use sqlx::types::Uuid;
 use sqlx::PgPool;
 use tracing::Instrument; // Import the missing type
-use chrono::Utc;
-use sqlx::types::Uuid;
 
 #[derive(Deserialize)]
 pub struct MovieInfo {
@@ -21,8 +21,24 @@ pub async fn download_torrent(connection: Data<PgPool>, body: Json<MovieInfo>) -
 
     let torrent_client = RqbitWrapper::default();
     // let output_folder = format!("");
+    let download_path = {
+        let mut base_path = match std::env::current_dir() {
+            Ok(dir) => dir.display().to_string(),
+            Err(_err) => "/tmp".to_string(),
+        };
+        base_path.push_str(
+            format!(
+                "/Download/{}_{}_{}",
+                body.movie_id,
+                body.source.to_string(),
+                chrono::Utc::now().date_naive()
+            )
+            .as_str(),
+        );
+        base_path
+    };
     let meta_data = match torrent_client
-        .download_torrent(&body.magnet_url, None::<String>)
+        .download_torrent(&body.magnet_url, Some(download_path))
         .await
     {
         Ok(movie_info) => {
@@ -30,30 +46,28 @@ pub async fn download_torrent(connection: Data<PgPool>, body: Json<MovieInfo>) -
             movie_info
         }
         Err(err) => {
-            tracing::error!( "{}", err);
+            tracing::error!("{}", err);
             return HttpResponse::InternalServerError().json(json!({
               "error" : "Failed to start torrent"
             }));
         }
     };
 
-    let query_res = sqlx::query!(
+    let query_res = sqlx::query(
       r#"
         INSERT INTO movie_torrent (id, movie_source, movie_id, created_at, movie_path, torrent_id, file_type)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
-      "#,
-      Uuid::new_v4(),
-      body.source.clone() as Source,
-      meta_data.id.parse::<i32>().unwrap(),
-      Utc::now(),
-      meta_data.path.clone(),
-      body.movie_id as i32,
-      meta_data.file_type.clone(),
-    )
-    .fetch_one(connection.as_ref())
+      "#)
+      .bind(Uuid::new_v4())
+      .bind(body.source.clone() as Source)
+      .bind(meta_data.id.parse::<i32>().unwrap())
+      .bind(Utc::now())
+      .bind(meta_data.path.clone())
+      .bind(body.movie_id as i32)
+      .bind(meta_data.file_type.clone())
+    .execute(connection.as_ref())
     .instrument(query_span)
     .await;
-
 
     match query_res {
         Ok(_) => {

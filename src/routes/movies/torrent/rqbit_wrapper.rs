@@ -1,6 +1,6 @@
 use reqwest::Client;
 use serde_json::Value;
-use std::env;
+use std::{env, f64::consts::PI};
 pub struct RqbitWrapper {
     pub origin: String,
     pub download_path: String,
@@ -62,15 +62,17 @@ impl RqbitWrapper {
     pub async fn download_torrent(
         &self,
         magnet: impl Into<String>,
-        output_folder: Option<impl Into<String>>,
+        output_folder: Option<String>,
     ) -> Result<FileInfo, String> {
         let client = Client::new();
-        let response = match client
-            .post(format!("{}/torrents", self.origin.as_str()))
-            .json(&magnet.into())
-            .send()
-            .await
-        {
+        let url = {
+            let mut base = format!("{}/torrents", self.origin.as_str());
+            if output_folder.is_some() {
+                base.push_str(format!("?output_folder={}", output_folder.clone().unwrap()).as_str())
+            }
+            base
+        };
+        let response = match client.post(url).body(magnet.into()).send().await {
             Ok(res) => match res.json::<Value>().await {
                 Ok(body) => body,
                 Err(err) => {
@@ -90,7 +92,7 @@ impl RqbitWrapper {
         };
         let torrent_path = {
             if output_folder.is_none() {
-                let torrent_dir_name = response["name"].as_str();
+                let torrent_dir_name = response["details"]["name"].as_str();
                 if torrent_dir_name.is_none() {
                     return Err("Error: Missing torrent name form response body".to_string());
                 }
@@ -100,7 +102,7 @@ impl RqbitWrapper {
             }
         };
         let (torrent_subs, torrent_file_type) = {
-            let torrent_files_arr = match response["files"].as_array() {
+            let torrent_files_arr = match response["details"]["files"].as_array() {
                 Some(fiels) => fiels,
                 None => return Err("Error: Found no files in response".to_string()),
             };

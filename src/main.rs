@@ -10,12 +10,12 @@ use std::process::{Command, Stdio};
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     let mut output = Command::new("rqbit")
-    .arg("server")
-    .arg("start")
-    .arg("/goinfre/aabdou/Download")
-    .stdout(Stdio::null())
-    .spawn()
-    .unwrap();
+        .arg("server")
+        .arg("start")
+        .arg("/goinfre/aabdou/Download")
+        .stdout(Stdio::null())
+        .spawn()
+        .unwrap();
     dotenv().ok();
     check_for_necessary_env();
     let subscriber = get_subscriber("hyper_tube", "info", std::io::stdout);

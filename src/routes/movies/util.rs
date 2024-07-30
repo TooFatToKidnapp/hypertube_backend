@@ -1,5 +1,6 @@
 use super::{get_movie_info, get_movies_search};
 use crate::middleware::Authentication;
+use crate::routes::download_torrent;
 use actix_web::web::Data;
 use actix_web::{http, web, Scope};
 use serde::Deserialize;
@@ -11,7 +12,6 @@ use std::path::Display;
 use tracing::{Instrument, Span};
 use validator::ValidationError;
 use yts_api::{ListMovies, MovieList, Order, Quality, Sort};
-use crate::routes::download_torrent;
 
 // https://ww4.yts.nz/api
 // https://popcornofficial.docs.apiary.io/#reference/show/get-page/pages
@@ -93,11 +93,21 @@ pub enum Source {
     MovieDb,
 }
 
+
+impl ToString for Source {
+    fn to_string(&self) -> String {
+        match self {
+            Source::YTS => "YTS".to_string(),
+            Source::MovieDb => "MovieDb".to_string(),
+        }
+    }
+}
+
 impl Into<String> for Source {
     fn into(self) -> String {
         match self {
             Self::YTS => "YTS".to_string(),
-            Self::MovieDb => "MOVIE_DB".to_string()
+            Self::MovieDb => "MOVIE_DB".to_string(),
         }
     }
 }
