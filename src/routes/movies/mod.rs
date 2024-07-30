@@ -9,5 +9,4 @@ pub use download_movie_content::*;
 use get_movie_info::*;
 use search_movies::*;
 use stream_video_content::*;
-use torrent::*;
 pub use util::*;

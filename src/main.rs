@@ -9,7 +9,7 @@ use std::process::{Command, Stdio};
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let mut output = Command::new("rqbit")
+    let _output = Command::new("rqbit")
         .arg("server")
         .arg("start")
         .arg("/goinfre/aabdou/Download")

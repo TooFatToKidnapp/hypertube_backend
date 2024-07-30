@@ -1,4 +1,4 @@
-use super::{get_movie_info, get_movies_search};
+use super::{get_movie_info, get_movies_search, stream_video_content};
 use crate::middleware::Authentication;
 use crate::routes::download_torrent;
 use actix_web::web::Data;
@@ -8,7 +8,6 @@ use serde_json::{json, Number, Value};
 use sqlx::{PgPool, Row};
 use std::borrow::Cow;
 use std::fmt;
-use std::path::Display;
 use tracing::{Instrument, Span};
 use validator::ValidationError;
 use yts_api::{ListMovies, MovieList, Order, Quality, Sort};
@@ -93,21 +92,11 @@ pub enum Source {
     MovieDb,
 }
 
-
-impl ToString for Source {
-    fn to_string(&self) -> String {
-        match self {
-            Source::YTS => "YTS".to_string(),
-            Source::MovieDb => "MovieDb".to_string(),
-        }
-    }
-}
-
-impl Into<String> for Source {
-    fn into(self) -> String {
-        match self {
-            Self::YTS => "YTS".to_string(),
-            Self::MovieDb => "MOVIE_DB".to_string(),
+impl std::fmt::Display for Source {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match *self {
+            Source::YTS => write!(f, "YTS"),
+            Source::MovieDb => write!(f, "MovieDb"),
         }
     }
 }
@@ -162,15 +151,21 @@ pub fn movie_source(db_pool: &PgPool) -> Scope {
                 .wrap(Authentication::new(db_pool.clone())),
         )
         .route(
-            "/{id}/{source}",
-            web::get()
-                .to(get_movie_info)
-                .wrap(Authentication::new(db_pool.clone())),
-        )
-        .route(
             "/torrent",
             web::post()
                 .to(download_torrent)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/stream/{provider}/{movie_id}/{quality}",
+            web::get()
+                .to(stream_video_content)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/{id}/{source}",
+            web::get()
+                .to(get_movie_info)
                 .wrap(Authentication::new(db_pool.clone())),
         )
 }

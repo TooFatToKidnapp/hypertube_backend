@@ -1,6 +1,6 @@
 use reqwest::Client;
 use serde_json::Value;
-use std::{env, f64::consts::PI};
+use std::env;
 pub struct RqbitWrapper {
     pub origin: String,
     pub download_path: String,
@@ -47,7 +47,7 @@ impl Default for RqbitWrapper {
 }
 
 fn is_video_file(file_name: &str) -> bool {
-    let video_extensions = vec![".mp4", ".mkv", ".flv", ".avi", ".mov", ".wmv"];
+    let video_extensions = [".mp4", ".mkv", ".flv", ".avi", ".mov", ".wmv"];
     video_extensions.iter().any(|ext| file_name.ends_with(ext))
 }
 
@@ -57,6 +57,28 @@ impl RqbitWrapper {
             origin: origin.into(),
             download_path: download_path.into(),
         }
+    }
+
+    // delete the remaining movie dir from the file system
+    pub async fn delete_torrent(&self, torrent_id: u32) -> Result<(), String> {
+        let client = Client::new();
+        let url = format!("{}/torrents/{}/delete", self.origin.as_str(), torrent_id);
+        let response = match client.post(url).send().await {
+            Ok(res) => {
+                tracing::info!("Sent Delete request successfully");
+                res
+            }
+            Err(err) => {
+                tracing::info!("Err trying to send delete request to the client");
+                return Err(err.to_string());
+            }
+        };
+        if !response.status().is_success() {
+            tracing::error!("Failed to delete the torrent from the client");
+            return Err("Failed to delete the torrent from the client".to_string());
+        }
+
+        Ok(())
     }
 
     pub async fn download_torrent(
@@ -91,14 +113,15 @@ impl RqbitWrapper {
             None => return Err("Error: No torrent id in response body".to_string()),
         };
         let torrent_path = {
-            if output_folder.is_none() {
+            if let Some(output_path ) = output_folder {
+                output_path
+            }
+            else {
                 let torrent_dir_name = response["details"]["name"].as_str();
                 if torrent_dir_name.is_none() {
                     return Err("Error: Missing torrent name form response body".to_string());
                 }
                 format!("{}/{}", self.download_path, torrent_dir_name.unwrap())
-            } else {
-                output_folder.unwrap().into()
             }
         };
         let (torrent_subs, torrent_file_type) = {
@@ -124,7 +147,7 @@ impl RqbitWrapper {
                         language: language.to_string(),
                     });
                 } else if is_video_file(file_as_str) {
-                    let tab = file_as_str.trim().split(".");
+                    let tab = file_as_str.trim().split('.');
                     tab.last().unwrap().clone_into(&mut torrent_type);
                 }
             }

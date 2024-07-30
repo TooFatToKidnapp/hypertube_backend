@@ -1,9 +1,9 @@
 use super::torrent::RqbitWrapper;
-use super::{Source, SubInfo};
+use super::Source;
 use actix_web::web::Json;
 use actix_web::{web::Data, HttpResponse};
 use chrono::Utc;
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use serde_json::json;
 use sqlx::types::Uuid;
 use sqlx::PgPool;
@@ -30,7 +30,7 @@ pub async fn download_torrent(connection: Data<PgPool>, body: Json<MovieInfo>) -
             format!(
                 "/Download/{}_{}_{}",
                 body.movie_id,
-                body.source.to_string(),
+                body.source,
                 chrono::Utc::now().date_naive()
             )
             .as_str(),
