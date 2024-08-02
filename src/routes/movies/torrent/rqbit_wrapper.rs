@@ -113,10 +113,9 @@ impl RqbitWrapper {
             None => return Err("Error: No torrent id in response body".to_string()),
         };
         let torrent_path = {
-            if let Some(output_path ) = output_folder {
+            if let Some(output_path) = output_folder {
                 output_path
-            }
-            else {
+            } else {
                 let torrent_dir_name = response["details"]["name"].as_str();
                 if torrent_dir_name.is_none() {
                     return Err("Error: Missing torrent name form response body".to_string());

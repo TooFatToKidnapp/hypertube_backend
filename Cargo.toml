@@ -39,6 +39,8 @@ mime = "0.3.17"
 aws-config = "1.5.4"
 aws-sdk-s3 = "1.40.0"
 yts-api = "0.4.0"
+actix-files = "0.6.6"
+actix-http = "3.8.0"
 
 [dependencies.sqlx]
 version = "0.7.4"

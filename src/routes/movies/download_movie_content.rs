@@ -11,7 +11,7 @@ use tracing::Instrument; // Import the missing type
 
 #[derive(Deserialize)]
 pub struct MovieInfo {
-    pub movie_id: u32,
+    pub movie_id: i32,
     pub source: Source,
     pub magnet_url: String,
 }
@@ -54,17 +54,17 @@ pub async fn download_torrent(connection: Data<PgPool>, body: Json<MovieInfo>) -
     };
 
     let query_res = sqlx::query(
-      r#"
+    r#"
         INSERT INTO movie_torrent (id, movie_source, movie_id, created_at, movie_path, torrent_id, file_type)
         VALUES ($1, $2, $3, $4, $5, $6, $7)
-      "#)
-      .bind(Uuid::new_v4())
-      .bind(body.source.clone() as Source)
-      .bind(meta_data.id.parse::<i32>().unwrap())
-      .bind(Utc::now())
-      .bind(meta_data.path.clone())
-      .bind(body.movie_id as i32)
-      .bind(meta_data.file_type.clone())
+    "#)
+    .bind(Uuid::new_v4())
+    .bind(body.source.clone() as Source)
+    .bind(meta_data.id.parse::<i32>().unwrap())
+    .bind(Utc::now())
+    .bind(meta_data.path.clone())
+    .bind(body.movie_id)
+    .bind(meta_data.file_type.clone())
     .execute(connection.as_ref())
     .instrument(query_span)
     .await;
