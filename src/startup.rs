@@ -1,4 +1,5 @@
 use crate::passport::{configure_passport_service, passport_route_auth, passport_route_redirect};
+use crate::routes::comment_source;
 use crate::routes::hello_world::handler;
 use crate::routes::movies::movie_source;
 use crate::routes::password_rest::password_source;
@@ -46,6 +47,7 @@ pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std:
             .app_data(passport_state.clone())
             .service(passport_route_auth())
             .service(passport_route_redirect())
+            .service(comment_source(&db_pool))
             .service(user_source(&db_pool))
             .service(password_source())
             .service(movie_source(&db_pool))

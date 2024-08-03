@@ -110,8 +110,17 @@ pub async fn stream_video_content(
                 .body(buffer);
         }
     } else {
-        tracing::info!("No range headers found, sending first 5mb of the file");
-        if let Ok(ranges) = HttpRange::parse("bytes=0-4999999", file_size) {
+        let chunk_size = if file_size > 4999999 {
+            4999999
+        } else {
+            file_size
+        };
+        tracing::info!(
+            "No range headers found, sending first {} bytes of the file",
+            chunk_size
+        );
+        if let Ok(ranges) = HttpRange::parse(format!("bytes=0-{}", chunk_size).as_str(), file_size)
+        {
             let first_range = ranges[0];
             let start = first_range.start;
             let end = std::cmp::min(start + first_range.length - 1, file_size - 1);
