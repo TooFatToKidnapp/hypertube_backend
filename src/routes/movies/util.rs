@@ -1,4 +1,4 @@
-use super::{get_movie_info, get_movies_search, stream_video_content};
+use super::{delete_torrent, get_movie_info, get_movies_search, stream_video_content};
 use crate::middleware::Authentication;
 use crate::routes::download_torrent;
 use actix_web::web::Data;
@@ -157,10 +157,14 @@ pub fn movie_source(db_pool: &PgPool) -> Scope {
                 .wrap(Authentication::new(db_pool.clone())),
         )
         .route(
-            "/stream/{provider}/{movie_id}/{quality}",
-            web::get()
-                .to(stream_video_content)
+            "/delete/{movie_id}/{source}",
+            web::delete()
+                .to(delete_torrent)
                 .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/stream/{source}/{movie_id}/{quality}",
+            web::get().to(stream_video_content), // .wrap(Authentication::new(db_pool.clone())),
         )
         .route(
             "/{id}/{source}",

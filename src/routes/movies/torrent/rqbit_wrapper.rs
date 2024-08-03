@@ -60,8 +60,12 @@ impl RqbitWrapper {
     }
 
     // delete the remaining movie dir from the file system
-    pub async fn delete_torrent(&self, torrent_id: u32) -> Result<(), String> {
-        let client = Client::new();
+    pub async fn delete_torrent(
+        &self,
+        torrent_id: i32,
+        torrent_path: String,
+    ) -> Result<(), String> {
+        let client: Client = Client::new();
         let url = format!("{}/torrents/{}/delete", self.origin.as_str(), torrent_id);
         let response = match client.post(url).send().await {
             Ok(res) => {
@@ -76,6 +80,19 @@ impl RqbitWrapper {
         if !response.status().is_success() {
             tracing::error!("Failed to delete the torrent from the client");
             return Err("Failed to delete the torrent from the client".to_string());
+        }
+
+        let path = std::path::Path::new(torrent_path.as_str());
+        if let Some(parent_path) = path.parent() {
+            match std::fs::remove_dir_all(parent_path.to_str().unwrap()) {
+                Ok(_) => {
+                    tracing::info!("Dir deleted successfully")
+                }
+                Err(err) => {
+                    tracing::error!("Failed to delete dir {:#?}", err);
+                    return Err(err.to_string());
+                }
+            }
         }
 
         Ok(())
@@ -96,7 +113,10 @@ impl RqbitWrapper {
         };
         let response = match client.post(url).body(magnet.into()).send().await {
             Ok(res) => match res.json::<Value>().await {
-                Ok(body) => body,
+                Ok(body) => {
+                    tracing::info!("response body: {}", body);
+                    body
+                }
                 Err(err) => {
                     tracing::error!("{:#?}", err);
                     return Err("Error: Failed to get request body".to_string());
@@ -107,25 +127,20 @@ impl RqbitWrapper {
                 return Err("Error: Failed to request torrent client".to_string());
             }
         };
-        println!("{:#?}", response);
         let torrent_id = match response["id"].as_number() {
             Some(id) => id.to_string(),
             None => return Err("Error: No torrent id in response body".to_string()),
         };
-        let torrent_path = {
+        let mut torrent_path = {
             if let Some(output_path) = output_folder {
                 output_path
             } else {
-                let torrent_dir_name = response["details"]["name"].as_str();
-                if torrent_dir_name.is_none() {
-                    return Err("Error: Missing torrent name form response body".to_string());
-                }
-                format!("{}/{}", self.download_path, torrent_dir_name.unwrap())
+                self.download_path.clone()
             }
         };
         let (torrent_subs, torrent_file_type) = {
             let torrent_files_arr = match response["details"]["files"].as_array() {
-                Some(fiels) => fiels,
+                Some(fields) => fields,
                 None => return Err("Error: Found no files in response".to_string()),
             };
             let mut torrent_type = String::new();
@@ -148,6 +163,7 @@ impl RqbitWrapper {
                 } else if is_video_file(file_as_str) {
                     let tab = file_as_str.trim().split('.');
                     tab.last().unwrap().clone_into(&mut torrent_type);
+                    torrent_path.push_str(format!("/{}", file_as_str).as_str());
                 }
             }
             if torrent_sub_arr.is_empty() {

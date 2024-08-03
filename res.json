@@ -1,0 +1,43 @@
+{
+  "id": 3,
+  "details": {
+    "info_hash": "0e42ef03cd24181b592d50cd507ff3c06d77f220",
+    "name": "Baazigar (1993) [720p] [WEBRip] [YTS.MX]",
+    "files": [
+      {
+        "name": "Baazigar.1993.720p.WEBRip.x264.AAC-[YTS.MX].mp4",
+        "components": [
+          "Baazigar.1993.720p.WEBRip.x264.AAC-[YTS.MX].mp4"
+        ],
+        "length": 1643392241,
+        "included": true
+      },
+      {
+        "name": "Baazigar.1993.720p.WEBRip.x264.AAC-[YTS.MX].srt",
+        "components": [
+          "Baazigar.1993.720p.WEBRip.x264.AAC-[YTS.MX].srt"
+        ],
+        "length": 116669,
+        "included": false
+      },
+      {
+        "name": "YTSProxies.com.txt",
+        "components": [
+          "YTSProxies.com.txt"
+        ],
+        "length": 584,
+        "included": false
+      },
+      {
+        "name": "www.YTS.MX.jpg",
+        "components": [
+          "www.YTS.MX.jpg"
+        ],
+        "length": 53226,
+        "included": false
+      }
+    ]
+  },
+  "output_folder": "/goinfre/aabdou/Download/third",
+  "seen_peers": null
+}
