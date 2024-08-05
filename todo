@@ -22,5 +22,5 @@ Notes:
 		- Making subtitles available with every movie
 		- Handling multiple Movie resolutions
 		- if the video format is not supported by the browser convert the format to a supported one
-		- user comments
+		<!-- - user comments -->
 		- delete the movie from the server if it's unwatched for a month
