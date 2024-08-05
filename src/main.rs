@@ -14,8 +14,7 @@ async fn main() -> std::io::Result<()> {
         .arg("start")
         .arg("/goinfre/aabdou/Download")
         .stdout(Stdio::null())
-        .spawn()
-        .unwrap();
+        .spawn()?;
     dotenv().ok();
     check_for_necessary_env();
     let subscriber = get_subscriber("hyper_tube", "info", std::io::stdout);

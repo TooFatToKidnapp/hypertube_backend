@@ -83,7 +83,7 @@ pub async fn stream_video_content(
     };
 
     let file_size = metadata.len();
-
+    println!("requested file size = {}", file_size);
     // Check for Range header
     if let Some(range_header) = req.headers().get(header::RANGE) {
         let range_str = range_header.to_str().unwrap();

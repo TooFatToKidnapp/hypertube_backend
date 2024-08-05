@@ -6,7 +6,7 @@ use validator::ValidationError;
 
 use crate::middleware::Authentication;
 
-use super::post_comment;
+use super::{delete_comment, get_movie_comments, post_comment};
 
 pub fn validate_user_comment(comment: &str) -> Result<(), ValidationError> {
     if comment.is_empty() {
@@ -23,10 +23,23 @@ pub fn validate_user_comment(comment: &str) -> Result<(), ValidationError> {
 }
 
 pub fn comment_source(db_pool: &PgPool) -> Scope {
-    web::scope("/comments").route(
-        "",
-        web::post()
-            .to(post_comment)
-            .wrap(Authentication::new(db_pool.clone())),
-    )
+    web::scope("/comments")
+        .route(
+            "",
+            web::post()
+                .to(post_comment)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/{movie_id}/{source}",
+            web::get()
+                .to(get_movie_comments)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/{comment_id}",
+            web::delete()
+                .to(delete_comment)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
 }
