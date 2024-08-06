@@ -92,6 +92,16 @@ pub enum Source {
     MovieDb,
 }
 
+impl From<String> for Source {
+    fn from(value: String) -> Self {
+        match value.as_str() {
+            "YTS" => Source::YTS,
+            "MovieDb" => Source::MovieDb,
+            _ => panic!("INVALID CONVERSION"),
+        }
+    }
+}
+
 impl std::fmt::Display for Source {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match *self {

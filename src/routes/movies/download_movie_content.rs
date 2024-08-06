@@ -1,3 +1,5 @@
+use crate::routes::{schedule_handler, CronJobScheduler};
+
 use super::torrent::RqbitWrapper;
 use super::Source;
 use actix_web::web::Json;
@@ -16,7 +18,11 @@ pub struct MovieInfo {
     pub magnet_url: String,
 }
 
-pub async fn download_torrent(connection: Data<PgPool>, body: Json<MovieInfo>) -> HttpResponse {
+pub async fn download_torrent(
+    connection: Data<PgPool>,
+    body: Json<MovieInfo>,
+    corn_job_handler: Data<CronJobScheduler>,
+) -> HttpResponse {
     let query_span = tracing::trace_span!("Start torrent Download Handler");
 
     let torrent_client = RqbitWrapper::default();
@@ -72,6 +78,12 @@ pub async fn download_torrent(connection: Data<PgPool>, body: Json<MovieInfo>) -
     match query_res {
         Ok(_) => {
             tracing::info!("torrent created successfully!");
+            let _ = schedule_handler(
+                &corn_job_handler,
+                CronJobScheduler::build_job_id(body.movie_id, body.source.clone()),
+                &connection,
+            )
+            .await;
             HttpResponse::Ok().finish()
         }
         Err(err) => {

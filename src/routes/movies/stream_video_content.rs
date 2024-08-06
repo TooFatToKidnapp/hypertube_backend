@@ -1,4 +1,6 @@
-use super::{MovieQuality, Source};
+use crate::routes::{cancel_job, schedule_handler};
+
+use super::{CronJobScheduler, MovieQuality, Source};
 use actix_files::HttpRange;
 use actix_web::{
     http::header::{self, ContentRangeSpec},
@@ -24,6 +26,7 @@ pub async fn stream_video_content(
     connection: Data<PgPool>,
     info: Path<StreamInfo>,
     req: HttpRequest,
+    mut corn_job_handler: Data<CronJobScheduler>,
 ) -> HttpResponse {
     let path_info = info.into_inner();
     let query_span = tracing::info_span!("Movie stream handler");
@@ -81,6 +84,19 @@ pub async fn stream_video_content(
             return HttpResponse::InternalServerError().finish();
         }
     };
+
+    // set movie as watched
+    let _ = cancel_job(
+        &mut corn_job_handler,
+        CronJobScheduler::build_job_id(path_info.movie_id, path_info.source.clone()),
+    )
+    .await;
+    let _ = schedule_handler(
+        &corn_job_handler,
+        CronJobScheduler::build_job_id(path_info.movie_id, path_info.source.clone()),
+        &connection,
+    )
+    .await;
 
     let file_size = metadata.len();
     println!("requested file size = {}", file_size);

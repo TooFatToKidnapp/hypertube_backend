@@ -1,9 +1,9 @@
 use crate::passport::{configure_passport_service, passport_route_auth, passport_route_redirect};
-use crate::routes::comment_source;
 use crate::routes::hello_world::handler;
 use crate::routes::movies::movie_source;
 use crate::routes::password_rest::password_source;
 use crate::routes::user::user_source;
+use crate::routes::{comment_source, CronJobScheduler};
 
 use actix_web::{
     dev::Server,
@@ -36,7 +36,7 @@ pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std:
     dotenv().ok();
     let db_pool = Data::new(db_pool);
     let passport_state = Data::new(configure_passport_service());
-
+    let cron_task_handler = Data::new(CronJobScheduler::new());
     let frontend_url = env::var("FRONTEND_URL").expect("FRONTEND_URL must be set");
 
     let server: Server = HttpServer::new(move || {
@@ -44,6 +44,7 @@ pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std:
         App::new()
             .wrap(cors)
             .wrap(TracingLogger::default())
+            .app_data(cron_task_handler.clone())
             .app_data(passport_state.clone())
             .service(passport_route_auth())
             .service(passport_route_redirect())
