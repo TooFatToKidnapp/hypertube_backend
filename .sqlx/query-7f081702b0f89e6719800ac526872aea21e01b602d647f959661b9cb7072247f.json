@@ -1,0 +1,70 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            SELECT * FROM users WHERE id = $1\n        ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Uuid"
+      },
+      {
+        "ordinal": 1,
+        "name": "username",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "first_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 3,
+        "name": "last_name",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "profile_picture_url",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 5,
+        "name": "email",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 6,
+        "name": "password_hash",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      },
+      {
+        "ordinal": 8,
+        "name": "updated_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      false,
+      true,
+      true,
+      true,
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "7f081702b0f89e6719800ac526872aea21e01b602d647f959661b9cb7072247f"
+}

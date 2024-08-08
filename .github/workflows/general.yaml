@@ -12,6 +12,23 @@ env:
   CARGO_TERM_COLOR: always
   DATABASE_URL: ${{ secrets.DATABASE_URL }}
   FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
+  JWT_SECRET: ${{ secrets.JWT_SECRET }}
+  BACKEND_URL: ${{ secrets.BACKEND_URL }}
+  CLIENT_UID_42: ${{ secrets.CLIENT_UID_42 }}
+  CLIENT_SECRET_42: ${{ secrets.CLIENT_SECRET_42 }}
+  FAILURE_REDIRECT_URI: ${{ secrets.FAILURE_REDIRECT_URI }}
+  GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+  GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+  GOOGLE_CLIENT_SCOPE: ${{ secrets.GOOGLE_CLIENT_SCOPE }}
+  CLIENT_ID_GITHUB: ${{ secrets.CLIENT_ID_GITHUB }}
+  CLIENT_SECRET_GITHUB: ${{ secrets.CLIENT_SECRET_GITHUB }}
+  CLIENT_SCOPE_GITHUB: ${{ secrets.CLIENT_SCOPE_GITHUB }}
+  S3_BUCKET_SECRET_KEY: ${{ secrets.S3_BUCKET_SECRET_KEY }}
+  S3_BUCKET_ACCESS_KEY: ${{ secrets.S3_BUCKET_ACCESS_KEY }}
+  S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+  S3_PROVIDER_URL: ${{ secrets.S3_PROVIDER_URL }}
+  S3_BUCKET_URL: ${{ secrets.S3_BUCKET_URL }}
+  S3_REGION: ${{ secrets.S3_REGION }}
 
 jobs:
   test:
@@ -71,11 +88,11 @@ jobs:
   deploy:
     name: Deploy
     runs-on: ubuntu-latest
-    needs: [test, fmt, clippy] # , coverage, security_audit 
+    needs: [test, fmt, clippy] # , coverage, security_audit
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
-  
+
       - name: Set up SSH
         uses: appleboy/ssh-action@v0.1.7
         with:
@@ -83,8 +100,21 @@ jobs:
           username: ${{ secrets.USER }}
           key: ${{ secrets.SSH_KEY }}
           script: |
+            set -e
             cd /root/hypertube_backend
+            echo "Pulling latest code..."
             git pull origin main
+            echo "Setting up Rust environment..."
+            if [ ! -d "$HOME/.cargo" ]; then
+                echo "Installing Rust and Cargo..."
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+            fi
+            source $HOME/.cargo/env
+            export PATH="$HOME/.cargo/bin:$PATH"
+            echo "Building project..."
             cargo build --release
+            echo "Copying configuration..."
             cp /root/hypertube_backend/configuration.json /root/hypertube_backend/target/release/configuration.json
-            systemctl restart hypertube_backend.service
+            echo "Restarting service..."
+            sudo systemctl restart hypertube_backend.service
+            echo "Deployment finished"

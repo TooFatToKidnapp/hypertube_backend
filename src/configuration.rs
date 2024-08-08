@@ -1,13 +1,13 @@
 use config::{Config, File, FileFormat};
 use serde::Deserialize;
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application_port: u16,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize, Debug)]
 pub struct DatabaseSettings {
     pub user_name: String,
     pub password: String,

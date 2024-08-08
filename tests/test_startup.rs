@@ -12,6 +12,7 @@ pub struct TestDatabaseSettings {
     pub parent_db_name: String,
 }
 
+#[allow(dead_code)]
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
@@ -34,6 +35,17 @@ impl Drop for TestApp {
                 let mut connection: PgConnection = PgConnection::connect(connection_url.as_str())
                     .await
                     .expect("Failed to connect to Postgres for cleanup");
+                let terminate_sessions = format!(
+                    r#"SELECT pg_terminate_backend(pg_stat_activity.pid)
+                    FROM pg_stat_activity
+                    WHERE pg_stat_activity.datname = '{}'
+                    AND pid <> pg_backend_pid();"#,
+                    db_name
+                );
+                connection
+                    .execute(terminate_sessions.as_str())
+                    .await
+                    .expect("Failed to terminate other sessions.");
                 connection
                     .execute(format!(r#"DROP DATABASE "{}""#, db_name).as_str())
                     .await
@@ -55,7 +67,14 @@ pub async fn configure_database(config: &Settings, parent_db_name: &str) -> PgPo
         .execute(format!(r#"CREATE DATABASE "{}""#, config.database.database_name).as_str())
         .await
         .expect("Failed to create database.");
-    let connection_pool = PgPool::connect(url.as_str())
+    let test_database_url = format!(
+        "postgresql://{}:{}@{}/{}",
+        config.database.user_name,
+        config.database.password,
+        config.database.host,
+        config.database.database_name
+    );
+    let connection_pool = PgPool::connect(test_database_url.as_str())
         .await
         .expect("Failed to connect to postgres");
     sqlx::migrate!("./migrations")
@@ -73,6 +92,10 @@ pub async fn spawn_app() -> TestApp {
     let parent_db_name = configuration.database.database_name.clone();
     configuration.database.database_name = Uuid::new_v4().to_string();
     let connection_pool = configure_database(&configuration, &parent_db_name.to_string()).await;
+    sqlx::migrate!("./migrations")
+        .run(&connection_pool)
+        .await
+        .unwrap();
     let server = hypertube_backend::startup::run_server(listener, connection_pool.clone())
         .expect("Failed to bind address");
     let _ = tokio::spawn(server);

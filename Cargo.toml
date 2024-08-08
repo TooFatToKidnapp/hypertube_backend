@@ -19,7 +19,6 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 config = "0.14.0"
 chrono = "0.4.38"
 uuid = { version = "1.3.0", features = ["v4"] }
-log = "0.4.21"
 tracing = "0.1.40"
 tracing-bunyan-formatter = "0.3.9"
 tracing-log = "0.2.0"
@@ -27,18 +26,23 @@ tracing-subscriber = { version = "0.3.18", features = ["registry", "env-filter",
 tracing-actix-web = "0.7.11"
 actix-cors = "0.7.0"
 dotenv = "0.15.0"
+validator = { version ="0.18.1", features = ["derive"] }
+regex = "1.10.5"
+argon2 = { version = "0.5.3", features = ["std"] }
+futures-util = "0.3.30"
+passport-strategies = "0.1.5"
+oauth2 = "4.4.2"
+rand = "0.8.5"
+lettre = "0.11.7"
+actix-multipart = "0.7.2"
+mime = "0.3.17"
+aws-config = "1.5.4"
+aws-sdk-s3 = "1.40.0"
 
 [dependencies.sqlx]
-version = "0.7.0"
+version = "0.7.4"
 default-features = false
-features = [
-	"runtime-tokio-rustls",
-	"macros",
-	"postgres",
-	"uuid",
-	"chrono",
-	"migrate",
-]
+features = ["runtime-tokio-rustls", "macros", "postgres", "uuid", "chrono", "migrate", "json"]
 
 [dev-dependencies]
 actix-rt = "2.10.0"
