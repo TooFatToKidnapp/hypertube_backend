@@ -33,7 +33,7 @@ async fn delete_movie_handler(
     job_id: String,
     connection: Data<PgPool>,
 ) {
-    let interval = time::interval(Duration::from_secs(60));
+    let interval = time::interval(Duration::from_secs(2_628_000)); // one month in seconds
     let mut interval = interval;
 
     interval.tick().await;

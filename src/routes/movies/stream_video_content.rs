@@ -42,10 +42,13 @@ pub async fn stream_video_content(
     .instrument(query_span)
     .await;
 
-    let movie_path: String = match query_res {
+    let (movie_path, file_type) = match query_res {
         Ok(torrent_info) => {
             tracing::info!("Got torrent row in database");
-            torrent_info.get("movie_path")
+            (
+                torrent_info.get::<&str, &str>("movie_path").to_string(),
+                torrent_info.get::<&str, &str>("file_type").to_string(),
+            )
         }
         Err(sqlx::Error::RowNotFound) => {
             tracing::error!("Torrent Not downloaded");
@@ -99,65 +102,50 @@ pub async fn stream_video_content(
     .await;
 
     let file_size = metadata.len();
-    println!("requested file size = {}", file_size);
     // Check for Range header
     if let Some(range_header) = req.headers().get(header::RANGE) {
-        let range_str = range_header.to_str().unwrap();
-        println!("range_str {}", range_str);
-        if let Ok(ranges) = HttpRange::parse(range_str, file_size) {
-            let first_range = ranges[0];
-            let start = first_range.start;
-            let end = std::cmp::min(start + first_range.length - 1, file_size - 1);
+        if let Ok(range_str) = range_header.to_str() {
+            if range_str.is_empty() {
+                tracing::error!("empty range header");
+                return HttpResponse::BadRequest().json(json!({
+                    "error": "invalid range header"
+                }));
+            }
+            if let Ok(ranges) = HttpRange::parse(range_str, file_size) {
+                const CHUNK_SIZE_3_MB: u64 = 3_145_728;
+                let first_range = ranges[0];
+                let start = first_range.start;
+                let end =
+                    std::cmp::min(start + first_range.length - 1, start + CHUNK_SIZE_3_MB - 1);
+                let mut buffer = vec![0; (end - start + 1) as usize];
+                let mut file = movie;
+                file.seek(SeekFrom::Start(start)).unwrap();
+                file.read_exact(&mut buffer).unwrap();
 
-            let mut buffer = vec![0; (end - start + 1) as usize];
-            let mut file = movie;
-            file.seek(SeekFrom::Start(start)).unwrap();
-            file.read_exact(&mut buffer).unwrap();
-
-            let content_range = ContentRangeSpec::Bytes {
-                range: Some((start, end)),
-                instance_length: Some(file_size),
-            };
-            println!("sent chunk size {}", buffer.len());
-            println!("sent range {:#?}", (start, end));
-            return HttpResponse::PartialContent()
-                .insert_header((header::CONTENT_RANGE, content_range))
-                .content_type("video/mp4")
-                .body(buffer);
+                let content_range = ContentRangeSpec::Bytes {
+                    range: Some((start, end)),
+                    instance_length: Some(file_size),
+                };
+                return HttpResponse::PartialContent()
+                    .insert_header((header::CONTENT_RANGE, content_range))
+                    .content_type(format!("video/{}", file_type))
+                    .body(buffer);
+            } else {
+                tracing::error!("Cant parse the range header");
+                HttpResponse::BadRequest().json(json!({
+                    "error": "invalid range header"
+                }))
+            }
+        } else {
+            tracing::error!("Invalid header value format");
+            HttpResponse::BadRequest().json(json!({
+                "error": "invalid range header"
+            }))
         }
     } else {
-        let chunk_size = if file_size > 4999999 {
-            4999999
-        } else {
-            file_size
-        };
-        tracing::info!(
-            "No range headers found, sending first {} bytes of the file",
-            chunk_size
-        );
-        if let Ok(ranges) = HttpRange::parse(format!("bytes=0-{}", chunk_size).as_str(), file_size)
-        {
-            let first_range = ranges[0];
-            let start = first_range.start;
-            let end = std::cmp::min(start + first_range.length - 1, file_size - 1);
-
-            let mut buffer = vec![0; (end - start + 1) as usize];
-            let mut file = movie;
-            file.seek(SeekFrom::Start(start)).unwrap();
-            file.read_exact(&mut buffer).unwrap();
-
-            let content_range = ContentRangeSpec::Bytes {
-                range: Some((start, end)),
-                instance_length: Some(file_size),
-            };
-            println!("sent chunk size {}", buffer.len());
-            println!("sent range {:#?}", (start, end));
-            return HttpResponse::PartialContent()
-                .insert_header((header::CONTENT_RANGE, content_range))
-                .content_type("video/mp4")
-                .body(buffer);
-        }
+        tracing::error!("Missing range header in the request");
+        HttpResponse::BadRequest().json(json!({
+            "error" : "Missing range header"
+        }))
     }
-
-    todo!()
 }
