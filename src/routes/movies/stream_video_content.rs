@@ -56,7 +56,7 @@ pub async fn stream_video_content(
         }
         Err(err) => {
             tracing::error!("something went wrong {}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "Database error"
             }));
         }
@@ -84,7 +84,7 @@ pub async fn stream_video_content(
         }
         Err(err) => {
             tracing::error!("Can't get file data {}", err);
-            return HttpResponse::InternalServerError().finish();
+            return HttpResponse::BadRequest().finish();
         }
     };
 

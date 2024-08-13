@@ -81,7 +81,7 @@ pub async fn reset_password(body: Json<UpdatePassword>, connection: Data<PgPool>
         }
         Err(err) => {
             tracing::error!("Database Error {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
@@ -96,7 +96,7 @@ pub async fn reset_password(body: Json<UpdatePassword>, connection: Data<PgPool>
             hash.to_string()
         }
         Err(e) => {
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "Error": e.to_string()
             }));
         }
@@ -118,7 +118,7 @@ pub async fn reset_password(body: Json<UpdatePassword>, connection: Data<PgPool>
         Ok(_) => tracing::info!("User Password updated successfully"),
         Err(err) => {
             tracing::error!("database error {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
@@ -138,7 +138,7 @@ pub async fn reset_password(body: Json<UpdatePassword>, connection: Data<PgPool>
         Ok(rows_affected) => tracing::info!("Number of rows deleted = {:#?}", rows_affected),
         Err(err) => {
             tracing::error!("Failed to delete previous verification codes {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }

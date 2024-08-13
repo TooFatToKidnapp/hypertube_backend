@@ -7,7 +7,6 @@ use sqlx::PgPool;
 use std::net::TcpListener;
 use std::process::{Command, Stdio};
 
-
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     dotenv().ok();

@@ -69,7 +69,7 @@ pub async fn validate_password_reset_code(
         }
         Err(err) => {
             tracing::error!("Database error {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
@@ -91,7 +91,7 @@ pub async fn validate_password_reset_code(
         }
         Err(err) => {
             tracing::error!("Database Error {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error" : "something went wrong"
             }));
         }
@@ -128,7 +128,7 @@ pub async fn validate_password_reset_code(
         Ok(_) => tracing::info!("verification record updated"),
         Err(err) => {
             tracing::error!("Database Error {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }

@@ -47,7 +47,7 @@ pub async fn delete_torrent(movie_data: Path<MovieData>, connection: Data<PgPool
         }
         Err(err) => {
             tracing::error!("Database Error {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
               "error" : "Database Error"
             }));
         }

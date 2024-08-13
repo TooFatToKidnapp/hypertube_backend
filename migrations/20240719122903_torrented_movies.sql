@@ -7,6 +7,6 @@ CREATE TABLE movie_torrent(
   created_at timestamptz NOT NULL,
   movie_path TEXT NOT NULL,
   file_type TEXT NOT NULL,
-  available_subs TEXT[],
+  available_subs JSONB[],
   torrent_id INT NOT NULL
 );

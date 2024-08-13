@@ -78,7 +78,7 @@ pub async fn post_comment(
         Ok(_) => HttpResponse::Ok().finish(),
         Err(err) => {
             tracing::error!("Database Error {:#?}", err);
-            HttpResponse::InternalServerError().json(json!({
+            HttpResponse::BadRequest().json(json!({
               "error": "Something went wrong"
             }))
         }

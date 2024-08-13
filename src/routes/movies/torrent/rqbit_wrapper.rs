@@ -6,7 +6,7 @@ pub struct RqbitWrapper {
     pub download_path: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct SubInfo {
     pub language: String,
     pub path: String,
@@ -16,7 +16,7 @@ pub struct SubInfo {
 pub struct FileInfo {
     pub id: String,
     pub path: String,
-    pub available_subs: Option<Vec<SubInfo>>,
+    pub available_subs: Option<Vec<Value>>,
     pub file_type: String,
 }
 
@@ -24,7 +24,7 @@ impl FileInfo {
     fn new(
         id: impl Into<String>,
         path: impl Into<String>,
-        available_subs: Option<Vec<SubInfo>>,
+        available_subs: Option<Vec<Value>>,
         file_type: impl Into<String>,
     ) -> Self {
         FileInfo {
@@ -113,10 +113,7 @@ impl RqbitWrapper {
         };
         let response = match client.post(url).body(magnet.into()).send().await {
             Ok(res) => match res.json::<Value>().await {
-                Ok(body) => {
-                    tracing::info!("response body: {}", body);
-                    body
-                }
+                Ok(body) => body,
                 Err(err) => {
                     tracing::error!("{:#?}", err);
                     return Err("Error: Failed to get request body".to_string());
@@ -127,6 +124,7 @@ impl RqbitWrapper {
                 return Err("Error: Failed to request torrent client".to_string());
             }
         };
+        tracing::info!("TORRENT CLIENT RESPONSE {:#?}", response);
         let torrent_id = match response["id"].as_number() {
             Some(id) => id.to_string(),
             None => return Err("Error: No torrent id in response body".to_string()),
@@ -138,39 +136,42 @@ impl RqbitWrapper {
                 self.download_path.clone()
             }
         };
+        // let movie_content_dir = torrent_path.clone();
         let (torrent_subs, torrent_file_type) = {
             let torrent_files_arr = match response["details"]["files"].as_array() {
                 Some(fields) => fields,
                 None => return Err("Error: Found no files in response".to_string()),
             };
             let mut torrent_type = String::new();
-            let mut torrent_sub_arr = Vec::<SubInfo>::new();
+            // let mut torrent_sub_arr = Vec::<Value>::new();
             for file in torrent_files_arr.iter() {
                 if !file["name"].is_string() {
                     continue;
                 }
                 let file_as_str = file["name"].as_str().unwrap();
-                if file_as_str.ends_with(".srt") {
-                    let path = file_as_str.to_string();
-                    let language = match file_as_str.strip_prefix("Subs/") {
-                        Some(file) => file.strip_suffix(".srt").unwrap(),
-                        None => file_as_str.strip_suffix(".srt").unwrap(),
-                    };
-                    torrent_sub_arr.push(SubInfo {
-                        path,
-                        language: language.to_string(),
-                    });
-                } else if is_video_file(file_as_str) {
+                // if file_as_str.ends_with(".srt") || file_as_str.ends_with(".vtt") || file_as_str.ends_with(".ssa") || file_as_str.ends_with(".sub")  {
+                //     let path = file_as_str.to_string();
+                //     let language = match file_as_str.strip_prefix("Subs/") {
+                //         Some(file) => file.strip_suffix(".srt").unwrap(),
+                //         None => file_as_str.strip_suffix(".srt").unwrap(),
+                //     };
+                //     torrent_sub_arr.push(json!({
+                //         "path": format!("{}/{}", movie_content_dir, path),
+                //         "language": language.to_string()
+                //     }))
+                // }
+                if is_video_file(file_as_str) {
                     let tab = file_as_str.trim().split('.');
                     tab.last().unwrap().clone_into(&mut torrent_type);
                     torrent_path.push_str(format!("/{}", file_as_str).as_str());
                 }
             }
-            if torrent_sub_arr.is_empty() {
-                (None::<Vec<SubInfo>>, torrent_type)
-            } else {
-                (Some(torrent_sub_arr), torrent_type)
-            }
+            (None::<Vec<Value>>, torrent_type)
+            // if torrent_sub_arr.is_empty() {
+            //     (None::<Vec<Value>>, torrent_type)
+            // } else {
+            //     (Some(torrent_sub_arr), torrent_type)
+            // }
         };
         let torrent = FileInfo::new(torrent_id, torrent_path, torrent_subs, torrent_file_type);
         Ok(torrent)

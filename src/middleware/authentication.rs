@@ -163,7 +163,7 @@ where
                 }
                 Err(err) => {
                     tracing::error!("Database error {}", err);
-                    let http_res = HttpResponse::InternalServerError().json(json!({
+                    let http_res = HttpResponse::BadRequest().json(json!({
                         "Error" : "Database Error"
                     }));
                     let (http_req, _) = req.into_parts();
@@ -181,7 +181,7 @@ where
                     .await;
                 if delete_res.is_err() {
                     tracing::error!("Database error {}", delete_res.unwrap_err());
-                    let http_res = HttpResponse::InternalServerError().json(json!({
+                    let http_res = HttpResponse::BadRequest().json(json!({
                         "Error" : "Database Error"
                     }));
                     let (http_req, _) = req.into_parts();

@@ -59,7 +59,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
         }
         Err(err) => {
             tracing::error!("Error getting user from database {}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "Error": "something went wrong"
             }));
         }
@@ -72,7 +72,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
             hash
         }
         Err(_) => {
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "Error": "Something went wrong"
             }));
         }
@@ -108,7 +108,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
             "Failed to generate user session  {}",
             session_result.unwrap_err()
         );
-        return HttpResponse::InternalServerError().json(json!({
+        return HttpResponse::BadRequest().json(json!({
             "error": "something went wrong"
         }));
     }

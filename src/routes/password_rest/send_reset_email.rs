@@ -198,7 +198,7 @@ pub async fn send_password_reset_email(
         }
         Err(err) => {
             tracing::error!("Database error {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
@@ -220,7 +220,7 @@ pub async fn send_password_reset_email(
         Ok(rows_affected) => tracing::info!("Number of rows deleted = {:#?}", rows_affected),
         Err(err) => {
             tracing::error!("Failed to delete previous verification codes {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
@@ -230,7 +230,7 @@ pub async fn send_password_reset_email(
     let mut transaction = match transaction_result {
         Ok(transaction) => transaction,
         Err(e) => {
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "Error": e.to_string()
             }));
         }
@@ -256,7 +256,7 @@ pub async fn send_password_reset_email(
         Err(err) => {
             tracing::error!("Failed to create verification entry {:#?}", err);
             let _ = transaction.rollback().await;
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
@@ -270,7 +270,7 @@ pub async fn send_password_reset_email(
             let res = transaction.commit().await;
             if res.is_err() {
                 tracing::error!("failed to write changes to the database");
-                return HttpResponse::InternalServerError().json(json!({
+                return HttpResponse::BadRequest().json(json!({
                     "error": "failed to write changes to the database"
                 }));
             }
@@ -282,11 +282,11 @@ pub async fn send_password_reset_email(
             let res = transaction.rollback().await;
             if res.is_err() {
                 tracing::error!("failed to rollback changes in the database");
-                return HttpResponse::InternalServerError().json(json!({
+                return HttpResponse::BadRequest().json(json!({
                     "error": "failed to rollback changes in the database"
                 }));
             }
-            HttpResponse::InternalServerError().json(json!({
+            HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }))
         }

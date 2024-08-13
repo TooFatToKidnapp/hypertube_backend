@@ -190,7 +190,7 @@ pub async fn authenticate_forty_two(
                     "Failed to generate user session  {}",
                     session_result.unwrap_err()
                 );
-                return HttpResponse::InternalServerError().json(json!({
+                return HttpResponse::BadRequest().json(json!({
                     "error": "something went wrong"
                 }));
             }
@@ -239,7 +239,7 @@ pub async fn authenticate_forty_two(
             .await;
             if query_res.is_err() {
                 tracing::error!("Failed to create user {:?}", query_res.unwrap_err());
-                return HttpResponse::InternalServerError().json(json!({
+                return HttpResponse::BadRequest().json(json!({
                     "error": "database error"
                 }));
             }
@@ -262,7 +262,7 @@ pub async fn authenticate_forty_two(
                     "Failed to generate user session  {}",
                     session_result.unwrap_err()
                 );
-                return HttpResponse::InternalServerError().json(json!({
+                return HttpResponse::BadRequest().json(json!({
                     "error": "something went wrong"
                 }));
             }
@@ -283,7 +283,7 @@ pub async fn authenticate_forty_two(
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);
-            HttpResponse::InternalServerError().json(json!({
+            HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }))
         }

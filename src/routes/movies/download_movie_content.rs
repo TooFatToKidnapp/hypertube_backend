@@ -53,7 +53,7 @@ pub async fn download_torrent(
         }
         Err(err) => {
             tracing::error!("{}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
               "error" : "Failed to start torrent"
             }));
         }
@@ -61,8 +61,8 @@ pub async fn download_torrent(
 
     let query_res = sqlx::query(
     r#"
-        INSERT INTO movie_torrent (id, movie_source, movie_id, created_at, movie_path, torrent_id, file_type)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO movie_torrent (id, movie_source, movie_id, created_at, movie_path, torrent_id, file_type, available_subs)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
     "#)
     .bind(Uuid::new_v4())
     .bind(body.source.clone() as Source)
@@ -71,6 +71,7 @@ pub async fn download_torrent(
     .bind(meta_data.path.clone())
     .bind(meta_data.id.parse::<i32>().unwrap())
     .bind(meta_data.file_type.clone())
+    .bind(&meta_data.available_subs)
     .execute(connection.as_ref())
     .instrument(query_span)
     .await;
@@ -88,7 +89,7 @@ pub async fn download_torrent(
         }
         Err(err) => {
             tracing::error!("Failed to create torrent in database {:#?}", err);
-            HttpResponse::InternalServerError().finish()
+            HttpResponse::BadRequest().finish()
         }
     }
 }
