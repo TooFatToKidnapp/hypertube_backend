@@ -121,7 +121,7 @@ pub async fn authenticate_discord(
             let session_result = create_session(connection.as_ref(), user.clone(), SameSite::None).await;
             match session_result {
                 Ok(cookie)=>{
-                    return HttpResponse::Ok().cookie(cookie).finish();
+                    return HttpResponse::Ok().cookie(cookie).json(json!({"OK":"user was found"}));
                 }
                 Err(_)=>{
                     return HttpResponse::InternalServerError().json(json!({
@@ -177,7 +177,7 @@ pub async fn authenticate_discord(
                     let session = create_session(connection.get_ref(), new_user.clone(),  SameSite::None).await;
                     match session {
                         Ok(cookie) => {
-                            return HttpResponse::Ok().cookie(cookie).finish();
+                            return HttpResponse::Ok().cookie(cookie).json(json!({"OK":"user was created"}));
                         }
                         Err(_) => {
                             return  HttpResponse::InternalServerError().json(json!({

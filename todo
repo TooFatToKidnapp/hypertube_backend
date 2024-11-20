@@ -16,8 +16,14 @@
 
 7. Start the project...
 
+--- aymane ---
+
+1. setup environment builder
+
 -------------------------------
 Notes:
+	- set id to be auto generated in the schema
+	- you may want to use redis for sessions
 	- we can set up a mailing service with mailtrap
 	  we can send emails as raw strings or html
 		https://mailtrap.io/blog/rust-send-email/#How-to-send-HTML-email-with-Rust
