@@ -6,7 +6,8 @@ use actix_web::{
 };
 use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, StateCode};
 use passport_strategies::strategies::DiscordStrategy;
-use sqlx::PgPool;
+use sqlx::postgres::PgRow;
+use sqlx::{query, PgPool, Row};
 use std::env;
 
 use crate::middleware::User;
@@ -26,6 +27,90 @@ pub async fn discord(passport: Data<AppState>) -> HttpResponse {
     }))
 }
 
+
+// add user exist
+
+
+async fn create_user(connection:&PgPool, profile:&serde_json::Value, query_span: tracing::span::Span)->HttpResponse{
+    let user_name = &profile["username"];
+    // let image_url = &profile["avatar"];
+
+    let user_name = user_name.as_str();
+    // let image_url = image_url.as_str();
+
+    if user_name.is_none()  {
+        return  HttpResponse::BadRequest().json(json!(
+            {
+                "error":"missing some informations from discord response: username",
+            }
+        ));
+    }
+
+    let email = profile["email"].as_str().unwrap();
+    let query_result = sqlx::query(
+                r#"
+                    INSERT INTO users (id, username, email, created_at, updated_at)
+                    VALUES ($1, $2, $3, $4, $5)
+                    RETURNING *
+                "#,
+                // uuid::Uuid::new_v4(),
+                // user_name,
+                // // image_url,
+                // email,
+                // Utc::now(),
+                // Utc::now(),
+            ).bind(uuid::Uuid::new_v4()).bind(user_name).bind(email).bind(Utc::now()).bind(Utc::now())
+            .map(|row: PgRow|{
+                User {
+                    id: row.get("id"),
+                    first_name: row.get("first_name"),
+                    last_name: row.get("last_name"),
+                    email: row.get("email"),
+                    image_url: row.get("profile_picture_url"),
+                    created_at: row.get::<chrono::NaiveDateTime, _>("created_at").to_string(),
+                    updated_at: row.get::<chrono::NaiveDateTime, _>("updated_at").to_string(),
+                    username: row.get("username"),
+                    session_id: None,
+                }
+            })
+            .fetch_one(connection)
+            .instrument(query_span).await;
+
+            match query_result {
+                Ok(user) =>{
+                    let new_user = User{
+                        id: user.id,
+                        first_name: user.first_name,
+                        last_name: user.last_name,
+                        image_url: user.image_url,
+                        email: user.email,
+                        created_at: user.created_at.to_string(),
+                        updated_at: user.updated_at.to_string(),
+                        username: user.username,
+                        session_id: None,
+                    };
+                    let session = create_session(connection, new_user.clone(),  SameSite::None).await;
+                    match session {
+                        Ok(cookie) => {
+                            return HttpResponse::Ok().cookie(cookie).json(json!({"OK":"user was created"}));
+                        }
+                        Err(_) => {
+                            return  HttpResponse::InternalServerError().json(json!({
+                                "error":"failed to generate session for user",
+                            }));
+                        }
+                    }
+                }
+                Err(_)=>{
+                    return HttpResponse::InternalServerError().json(json!({
+                        "error":"failed to create user",
+                    }));
+                }
+            }
+}
+
+// async fn send_user_session()
+
 pub async fn authenticate_discord(
     auth: Data<AppState>,
     authstate: web::Query<StateCode>,
@@ -41,12 +126,9 @@ pub async fn authenticate_discord(
 
     let mut auth = auth.discord_passport.write().await;
 
-    dbg!("AUTHENTICATE DISCORD START :::::::::::::::::::: ");
     auth.authenticate("discord");
-    dbg!("AUTHENTICATE DISCORD END :::::::::::::::::::: ");
     let profile = match auth.get_profile(authstate.0).await {
         Ok(response) => {
-            dbg!("OK RESPONSE ENTERED");
             let res = match response {
                 PassportResponse::Profile(profile) => {
                     tracing::info!("Got Discord Profile");
@@ -54,7 +136,6 @@ pub async fn authenticate_discord(
                 }
                 PassportResponse::FailureRedirect(failure) => {
                     tracing::info!("didn't get user Discord profile. user redirected");
-                    println!("failure {}", failure);
                     return HttpResponse::SeeOther()
                         .append_header((http::header::LOCATION, failure.to_string()))
                         .finish();
@@ -63,11 +144,11 @@ pub async fn authenticate_discord(
             res
         }
         Err(error) => {
-            dbg!("ERROR RESPONSE ENTERED");
             tracing::error!("Error: Bad Discord Profile response");
             return HttpResponse::BadRequest().body(error.to_string());
         }
     };
+
     let email = &profile["email"];
     let is_verified = &profile["verified"];
 
@@ -78,46 +159,31 @@ pub async fn authenticate_discord(
         return HttpResponse::BadRequest().body("No email provided by discord");
     }
 
-
-
-
-
     let email = email.as_str().unwrap();
-    let query_result = sqlx::query!(
+    let query_result = sqlx::query(
         r#"
             SELECT * FROM users WHERE email = $1
         "#,
-        email
-    )
+    ).bind(email).map(|row: PgRow| {
+        User {
+            id: row.get("id"),
+            first_name: row.get("first_name"),
+            last_name: row.get("last_name"),
+            email: row.get("email"),
+            image_url: row.get("profile_picture_url"),
+            created_at: row.get::<chrono::NaiveDateTime, _>("created_at").to_string(),
+            updated_at: row.get::<chrono::NaiveDateTime, _>("updated_at").to_string(),
+            username: row.get("username"),
+            session_id: None,
+        }
+    })
     .fetch_one(connection.get_ref())
     .instrument(query_span.clone())
     .await;
 
-
-
-    // let email = email.as_str().unwrap();
-
-    // let query_result = sqlx::query!(r#"
-    //     SELECT * FROM users WHERE email = $1
-    // "#, email)
-    // .fetch_one(connection.get_ref())
-    // .instrument(query_span.clone()).await;
-
     match query_result {
         Ok(user) => {
             tracing::info!("Google Log in event. user email found in the database");
-            // println!("")
-            let user = User {
-                id: user.id,
-                first_name: user.first_name,
-                last_name: user.last_name,
-                image_url: user.profile_picture_url,
-                email: user.email,
-                created_at: user.created_at.to_string(),
-                updated_at: user.updated_at.to_string(),
-                username: user.username,
-                session_id: None,
-            };
             let session_result = create_session(connection.as_ref(), user.clone(), SameSite::None).await;
             match session_result {
                 Ok(cookie)=>{
@@ -131,68 +197,7 @@ pub async fn authenticate_discord(
             }
         }
         Err(sqlx::Error::RowNotFound)=>{
-            let user_name = &profile["username"];
-            let image_url = &profile["avatar"];
-
-            let user_name = user_name.as_str();
-            let image_url = image_url.as_str();
-
-            if user_name.is_none() || image_url.is_none() {
-                return  HttpResponse::BadRequest().json(json!(
-                    {
-                        "error":"missing some informations from discord response",
-                    }
-                ));
-            }
-
-            let query_result = sqlx::query!(
-                r#"
-                    INSERT INTO users (id, username, profile_picture_url, email, created_at, updated_at)
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                    RETURNING *
-                "#,
-                uuid::Uuid::new_v4(),
-                user_name,
-                image_url,
-                email,
-                Utc::now(),
-                Utc::now(),
-            )
-            .fetch_one(connection.get_ref())
-            .instrument(query_span).await;
-
-            match query_result {
-                Ok(user) =>{
-                    let new_user = User{
-                        id: user.id,
-                        first_name: user.first_name,
-                        last_name: user.last_name,
-                        image_url: user.profile_picture_url,
-                        email: user.email,
-                        created_at: user.created_at.to_string(),
-                        updated_at: user.updated_at.to_string(),
-                        username: user.username,
-                        session_id: None,
-                    };
-                    let session = create_session(connection.get_ref(), new_user.clone(),  SameSite::None).await;
-                    match session {
-                        Ok(cookie) => {
-                            return HttpResponse::Ok().cookie(cookie).json(json!({"OK":"user was created"}));
-                        }
-                        Err(_) => {
-                            return  HttpResponse::InternalServerError().json(json!({
-                                "error":"failed to generate session for user",
-                            }));
-                        }
-                    }
-                }
-                Err(_)=>{
-                    return HttpResponse::InternalServerError().json(json!({
-                        "error":"failed to create user",
-                        // "err_type":err.to,
-                    }));
-                }
-            }
+            return create_user(connection.get_ref(), &profile, query_span.clone()).await;
         }
         Err(err) =>{
             tracing::error!("database Error {:#?}", err);
@@ -202,10 +207,6 @@ pub async fn authenticate_discord(
         }
     }
 
-    // println!("EMAIL:::::: {}", email);
-    // println!("PROFILE:::::::::: {}", profile);
-    // return HttpResponse::Ok().json(json!(profile));
-    // todo!()
 }
 
 pub fn generate_discord_passport() -> PassPortBasicClient {
