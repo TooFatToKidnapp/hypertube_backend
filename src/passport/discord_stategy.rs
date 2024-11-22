@@ -26,19 +26,21 @@ pub async fn discord(passport: Data<AppState>) -> HttpResponse {
     }))
 }
 
-
 // add user exist
 
-
-async fn create_user(connection:&PgPool, profile:&serde_json::Value, query_span: tracing::span::Span)->HttpResponse{
+async fn create_user(
+    connection: &PgPool,
+    profile: &serde_json::Value,
+    query_span: tracing::span::Span,
+) -> HttpResponse {
     let user_name = &profile["username"];
     // let image_url = &profile["avatar"];
 
     let user_name = user_name.as_str();
     // let image_url = image_url.as_str();
 
-    if user_name.is_none()  {
-        return  HttpResponse::BadRequest().json(json!(
+    if user_name.is_none() {
+        return HttpResponse::BadRequest().json(json!(
             {
                 "error":"missing some informations from discord response: username",
             }
@@ -59,39 +61,38 @@ async fn create_user(connection:&PgPool, profile:&serde_json::Value, query_span:
         Utc::now(),
     )
     .fetch_one(connection)
-    .instrument(query_span).await;
+    .instrument(query_span)
+    .await;
 
-            match query_result {
-                Ok(user) =>{
-                    let new_user = User{
-                        id: user.id,
-                        first_name: user.first_name,
-                        last_name: user.last_name,
-                        image_url: user.profile_picture_url,
-                        email: user.email,
-                        created_at: user.created_at.to_string(),
-                        updated_at: user.updated_at.to_string(),
-                        username: user.username,
-                        session_id: None,
-                    };
-                    let session = create_session(connection, new_user.clone(),  SameSite::None).await;
-                    match session {
-                        Ok(cookie) => {
-                            return HttpResponse::Ok().cookie(cookie).json(json!({"OK":"user was created"}));
-                        }
-                        Err(_) => {
-                            HttpResponse::InternalServerError().json(json!({
-                                "error":"failed to generate session for user",
-                            }))
-                        }
-                    }
+    match query_result {
+        Ok(user) => {
+            let new_user = User {
+                id: user.id,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                image_url: user.profile_picture_url,
+                email: user.email,
+                created_at: user.created_at.to_string(),
+                updated_at: user.updated_at.to_string(),
+                username: user.username,
+                session_id: None,
+            };
+            let session = create_session(connection, new_user.clone(), SameSite::None).await;
+            match session {
+                Ok(cookie) => {
+                    return HttpResponse::Ok()
+                        .cookie(cookie)
+                        .json(json!({"OK":"user was created"}));
                 }
-                Err(_)=>{
-                    HttpResponse::InternalServerError().json(json!({
-                        "error":"failed to create user",
-                    }))
-                }
+                Err(_) => HttpResponse::InternalServerError().json(json!({
+                    "error":"failed to generate session for user",
+                })),
             }
+        }
+        Err(_) => HttpResponse::InternalServerError().json(json!({
+            "error":"failed to create user",
+        })),
+    }
 }
 
 pub async fn authenticate_discord(
@@ -137,7 +138,7 @@ pub async fn authenticate_discord(
     let is_verified = &profile["verified"];
 
     if email.as_str().is_none() || is_verified == false {
-        if is_verified == false{
+        if is_verified == false {
             return HttpResponse::BadRequest().body("email is not verified by discord");
         }
         return HttpResponse::BadRequest().body("No email provided by discord");
@@ -156,7 +157,6 @@ pub async fn authenticate_discord(
 
     match query_result {
         Ok(user) => {
-
             let user = User {
                 id: user.id,
                 first_name: user.first_name,
@@ -170,29 +170,29 @@ pub async fn authenticate_discord(
             };
 
             tracing::info!("Google Log in event. user email found in the database");
-            let session_result = create_session(connection.as_ref(), user.clone(), SameSite::None).await;
+            let session_result =
+                create_session(connection.as_ref(), user.clone(), SameSite::None).await;
             match session_result {
-                Ok(cookie)=>{
-                    return HttpResponse::Ok().cookie(cookie).json(json!({"OK":"user was found"}));
+                Ok(cookie) => {
+                    return HttpResponse::Ok()
+                        .cookie(cookie)
+                        .json(json!({"OK":"user was found"}));
                 }
-                Err(_)=>{
-                    HttpResponse::InternalServerError().json(json!({
-                        "Error":"failed to generate user session",
-                    }))
-                }
+                Err(_) => HttpResponse::InternalServerError().json(json!({
+                    "Error":"failed to generate user session",
+                })),
             }
         }
-        Err(sqlx::Error::RowNotFound)=>{
+        Err(sqlx::Error::RowNotFound) => {
             create_user(connection.get_ref(), &profile, query_span.clone()).await
         }
-        Err(err) =>{
+        Err(err) => {
             tracing::error!("database Error {:#?}", err);
             HttpResponse::InternalServerError().json(json!({
                 "error" : "something went wrong"
             }))
         }
     }
-
 }
 
 pub fn generate_discord_passport() -> PassPortBasicClient {
