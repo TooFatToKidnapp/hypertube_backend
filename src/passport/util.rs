@@ -4,7 +4,9 @@ use std::sync::Arc;
 use tokio::sync::RwLock;
 
 use super::{
-    authenticate_discord, authenticate_forty_two, authenticate_github, authenticate_google, discord, forty_tow, generate_discord_passport, generate_forty_two_passport, generate_github_passport, generate_google_passport, github, google
+    authenticate_discord, authenticate_forty_two, authenticate_github, authenticate_google,
+    discord, forty_tow, generate_discord_passport, generate_forty_two_passport,
+    generate_github_passport, generate_google_passport, github, google,
 };
 
 pub fn passport_route_redirect() -> Scope {
@@ -48,6 +50,6 @@ pub fn configure_passport_service() -> AppState {
         google_passport: google_passport_clone,
         github_passport: github_passport_clone,
         passport_42: passport_42_clone,
-        discord_passport: discord_passport_clone
+        discord_passport: discord_passport_clone,
     }
 }
