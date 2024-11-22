@@ -6,9 +6,8 @@ use actix_web::{
 };
 use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, StateCode};
 use passport_strategies::strategies::DiscordStrategy;
-use sqlx::postgres::PgRow;
-use sqlx::{query, PgPool, Row};
-use std::{any, env};
+use sqlx::PgPool;
+use std::env;
 
 use crate::middleware::User;
 use crate::routes::create_session;
@@ -81,16 +80,16 @@ async fn create_user(connection:&PgPool, profile:&serde_json::Value, query_span:
                             return HttpResponse::Ok().cookie(cookie).json(json!({"OK":"user was created"}));
                         }
                         Err(_) => {
-                            return  HttpResponse::InternalServerError().json(json!({
+                            HttpResponse::InternalServerError().json(json!({
                                 "error":"failed to generate session for user",
-                            }));
+                            }))
                         }
                     }
                 }
                 Err(_)=>{
-                    return HttpResponse::InternalServerError().json(json!({
+                    HttpResponse::InternalServerError().json(json!({
                         "error":"failed to create user",
-                    }));
+                    }))
                 }
             }
 }
@@ -177,20 +176,20 @@ pub async fn authenticate_discord(
                     return HttpResponse::Ok().cookie(cookie).json(json!({"OK":"user was found"}));
                 }
                 Err(_)=>{
-                    return HttpResponse::InternalServerError().json(json!({
+                    HttpResponse::InternalServerError().json(json!({
                         "Error":"failed to generate user session",
-                    }));
+                    }))
                 }
             }
         }
         Err(sqlx::Error::RowNotFound)=>{
-            return create_user(connection.get_ref(), &profile, query_span.clone()).await;
+            create_user(connection.get_ref(), &profile, query_span.clone()).await
         }
         Err(err) =>{
             tracing::error!("database Error {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            HttpResponse::InternalServerError().json(json!({
                 "error" : "something went wrong"
-            }));
+            }))
         }
     }
 
