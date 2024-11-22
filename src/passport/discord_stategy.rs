@@ -6,7 +6,7 @@ use actix_web::{
 };
 use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, StateCode};
 use passport_strategies::strategies::DiscordStrategy;
-use sqlx::{PgPool, Row};
+use sqlx::PgPool;
 use std::env;
 
 use crate::middleware::User;
