@@ -19,7 +19,7 @@ pub struct StreamInfo {
     pub movie_id: i32,
     pub source: Source,
     // check if the requested quality exist's else start the conversion
-    pub quality: MovieQuality,
+    pub _quality: MovieQuality,
 }
 
 pub async fn stream_video_content(

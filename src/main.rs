@@ -20,7 +20,8 @@ async fn main() -> std::io::Result<()> {
     let subscriber = get_subscriber("hyper_tube", "info", std::io::stdout);
     init_subscriber(subscriber);
     let listener = TcpListener::bind("0.0.0.0:8000")?;
-    let configuration = get_configuration("configuration").map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to read `configuration.json`. Please make sure it exists and is valid JSON.")))?;
+    // let configuration = get_configuration("configuration").map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, format!("Failed to read `configuration.json`. Please make sure it exists and is valid JSON.")))?;
+    let configuration = get_configuration("configuration").map_err(|_| std::io::Error::new(std::io::ErrorKind::Other, "Failed to read `configuration.json`. Please make sure it exists and is valid JSON.".to_string()))?;
     let connection_pool = PgPool::connect(configuration.database.connection_string().as_str())
         .await
         .expect("Failed to connect to database");

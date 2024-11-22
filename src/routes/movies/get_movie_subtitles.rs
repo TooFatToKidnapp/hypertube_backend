@@ -1,10 +1,9 @@
 use super::Source;
 use actix_web::{
-    http,
     web::{Data, Json},
     HttpResponse,
 };
-use reqwest::Client;
+// use reqwest::Client;
 use serde_json::json;
 use sqlx::{PgPool, Row};
 use tracing::Instrument;
@@ -18,16 +17,16 @@ pub struct SubtitleInfo {
 }
 
 // https://opensubtitles.stoplight.io/docs/opensubtitles-api/a172317bd5ccc-search-for-subtitles
-async fn download_movie_subtitles(
-    movie_dir_path: String,
-) -> Result<(), Box<dyn std::error::Error>> {
-    const SUBTITLES_PROVIDER_URL: &str = "https://api.opensubtitles.com/api/v1/subtitles";
-    let client = Client::new();
-    // match client.get(SUBTITLES_PROVIDER_URL)
-    // .header("User-Agent", "Hypertube v0.1")
+// async fn download_movie_subtitles(
+//     _movie_dir_path: String,
+// ) -> Result<(), Box<dyn std::error::Error>> {
+//     const SUBTITLES_PROVIDER_URL: &str = "https://api.opensubtitles.com/api/v1/subtitles";
+//     let _client = Client::new();
+//     // match client.get(SUBTITLES_PROVIDER_URL)
+//     // .header("User-Agent", "Hypertube v0.1")
 
-    todo!()
-}
+//     todo!()
+// }
 
 pub async fn get_movie_subtitles(
     connection: Data<PgPool>,
@@ -37,7 +36,7 @@ pub async fn get_movie_subtitles(
 
     let query_span = tracing::info_span!("Get Movie Subtitles Handler");
 
-    let (movie_record_id, movie_dir_path) = match sqlx::query(
+    let (_movie_record_id, _movie_dir_path) = match sqlx::query(
         r#"
     SELECT * FROM movie_torrent WHERE movie_id = $1 AND movie_source = $2
     "#,

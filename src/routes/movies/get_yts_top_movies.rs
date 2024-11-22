@@ -1,10 +1,9 @@
 use actix_web::{
-    http,
     web::{Path, Query},
     HttpResponse,
 };
 use serde_json::json;
-use yts_api::{ListMovies, MovieList, Order, Quality, Sort};
+use yts_api::{ListMovies, Sort};
 
 use crate::routes::{format_movie_list_response, PageInfo};
 

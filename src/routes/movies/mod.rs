@@ -15,7 +15,6 @@ pub use delete_torrent::*;
 pub use download_movie_content::*;
 use get_movie_info::*;
 pub use get_movie_subtitles::*;
-pub use get_watched_movie_list::*;
 pub use get_yts_top_movies::*;
 use search_movies::*;
 use stream_video_content::*;
