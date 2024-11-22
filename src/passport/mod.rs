@@ -1,7 +1,7 @@
+pub mod discord_stategy;
 pub mod forty_two_strategy;
 pub mod github_strategy;
 pub mod google_strategy;
-pub mod discord_stategy;
 pub mod util;
 
 pub use discord_stategy::*;
