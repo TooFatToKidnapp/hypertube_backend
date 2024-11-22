@@ -1,3 +1,4 @@
+use actix_web::cookie::SameSite;
 use actix_web::HttpResponse;
 use actix_web::{
     http,
@@ -20,9 +21,9 @@ pub async fn google(passport: Data<AppState>) -> HttpResponse {
     let mut auth = passport.google_passport.write().await;
     auth.authenticate("google");
     let url = auth.generate_redirect_url();
-    HttpResponse::SeeOther()
-        .append_header((http::header::LOCATION, url))
-        .finish()
+    HttpResponse::Ok().json(json!({
+        "redirect_url" : url
+    }))
 }
 
 pub async fn authenticate_google(
@@ -89,7 +90,8 @@ pub async fn authenticate_google(
                 username: user.username,
                 session_id: None,
             };
-            let session_result = create_session(connection.as_ref(), user.clone()).await;
+            let session_result =
+                create_session(connection.as_ref(), user.clone(), SameSite::None).await;
             if session_result.is_err() {
                 tracing::error!(
                     "Failed to generate user session  {}",
@@ -99,20 +101,7 @@ pub async fn authenticate_google(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok()
-                .cookie(session_result.unwrap())
-                .json(json!({
-                    "data" : {
-                        "id": user.id.to_string(),
-                        "email": user.email,
-                        "first_name": user.first_name,
-                        "image_url": user.image_url,
-                        "last_name": user.last_name,
-                        "created_at": user.created_at.to_string(),
-                        "updated_at": user.updated_at.to_string(),
-                        "username" : user.username,
-                    }
-                }))
+            HttpResponse::Ok().cookie(session_result.unwrap()).finish()
         }
         Err(sqlx::Error::RowNotFound) => {
             tracing::info!("Google Sign up event. user email was not found in the database");
@@ -159,7 +148,8 @@ pub async fn authenticate_google(
                 username: user_rec.username,
                 session_id: None,
             };
-            let session_result = create_session(connection.as_ref(), user.clone()).await;
+            let session_result =
+                create_session(connection.as_ref(), user.clone(), SameSite::None).await;
             if session_result.is_err() {
                 tracing::error!(
                     "Failed to generate user session  {}",
@@ -169,20 +159,7 @@ pub async fn authenticate_google(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok()
-                .cookie(session_result.unwrap())
-                .json(json!({
-                    "data" : {
-                        "id": user.id.to_string(),
-                        "email": user.email,
-                        "first_name": user.first_name,
-                        "image_url": user.image_url,
-                        "last_name": user.last_name,
-                        "created_at": user.created_at.to_string(),
-                        "updated_at": user.updated_at.to_string(),
-                        "username" : user.username,
-                    }
-                }))
+            HttpResponse::Ok().cookie(session_result.unwrap()).finish()
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);
@@ -199,6 +176,7 @@ pub fn generate_google_passport() -> PassPortBasicClient {
     let scopes: Vec<&str> = scope.split(',').collect();
     let mut backend_url = env::var("BACKEND_URL").unwrap();
     backend_url.push_str("/redirect/google");
+
     passport.using(
         "google",
         GoogleStrategy::new(

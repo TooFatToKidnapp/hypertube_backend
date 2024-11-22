@@ -185,6 +185,7 @@ pub fn validate_user_last_name(last_name: &str) -> Result<(), ValidationError> {
 pub async fn create_session(
     connection: &PgPool,
     user: User,
+    same_site: SameSite,
 ) -> Result<Cookie, Box<dyn std::error::Error>> {
     let session_query_result = sqlx::query!(
         r#"
@@ -221,7 +222,7 @@ pub async fn create_session(
     let cookie = Cookie::build("session", session_id)
         .secure(true)
         .http_only(true)
-        .same_site(SameSite::Strict)
+        .same_site(same_site)
         .path("/")
         .expires(Expiration::DateTime(
             OffsetDateTime::now_utc() + Duration::days(7),
