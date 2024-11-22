@@ -7,10 +7,9 @@ use actix_web::{
 use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, StateCode};
 use passport_strategies::strategies::GoogleStrategy;
 use serde_json::json;
-use sqlx::postgres::PgRow;
 use sqlx::PgPool;
 use std::env;
-use sqlx::Row;
+
 use super::AppState;
 use crate::middleware::User;
 use crate::routes::create_session;
@@ -67,23 +66,12 @@ pub async fn authenticate_google(
     }
 
     let user_email = user_email.as_str().unwrap();
-    let query_result = sqlx::query(
+    let query_result = sqlx::query!(
         r#"
             SELECT * FROM users WHERE email = $1
         "#,
-    ).bind(user_email).map(|row: PgRow| {
-        User {
-            id: row.get("id"),
-            first_name: row.get("first_name"),
-            last_name: row.get("last_name"),
-            email: row.get("email"),
-            image_url: row.get("profile_picture_url"),
-            created_at: row.get::<chrono::NaiveDateTime, _>("created_at").to_string(),
-            updated_at: row.get::<chrono::NaiveDateTime, _>("updated_at").to_string(),
-            username: row.get("username"),
-            session_id: None,
-        }
-    })
+        user_email
+    )
     .fetch_one(connection.get_ref())
     .instrument(query_span.clone())
     .await;
@@ -91,17 +79,17 @@ pub async fn authenticate_google(
     match query_result {
         Ok(user) => {
             tracing::info!("Google Log in event. user email found in the database");
-            // let user = User {
-            //     id: user.id,
-            //     first_name: user.first_name,
-            //     last_name: user.last_name,
-            //     image_url: user.profile_picture_url,
-            //     email: user.email,
-            //     created_at: user.created_at.to_string(),
-            //     updated_at: user.updated_at.to_string(),
-            //     username: user.username,
-            //     session_id: None,
-            // };
+            let user = User {
+                id: user.id,
+                first_name: user.first_name,
+                last_name: user.last_name,
+                image_url: user.profile_picture_url,
+                email: user.email,
+                created_at: user.created_at.to_string(),
+                updated_at: user.updated_at.to_string(),
+                username: user.username,
+                session_id: None,
+            };
             let session_result =
                 create_session(connection.as_ref(), user.clone(), SameSite::None).await;
             if session_result.is_err() {
@@ -126,35 +114,21 @@ pub async fn authenticate_google(
                 }));
             }
             let user_name = user_name.as_str().unwrap();
-            let query_res = sqlx::query(
+            let query_res = sqlx::query!(
                 r#"
                     INSERT INTO users (id, username, email, created_at, updated_at)
                     VALUES ($1, $2, $3, $4, $5)
                     RETURNING *
                 "#,
-                // uuid::Uuid::new_v4(),
-                // user_name,
-                // // image_url,
-                // email,
-                // Utc::now(),
-                // Utc::now(),
-            ).bind(uuid::Uuid::new_v4()).bind(user_name).bind(user_email).bind(Utc::now()).bind(Utc::now())
-            .map(|row: PgRow|{
-                User {
-                    id: row.get("id"),
-                    first_name: row.get("first_name"),
-                    last_name: row.get("last_name"),
-                    email: row.get("email"),
-                    image_url: row.get("profile_picture_url"),
-                    created_at: row.get::<chrono::NaiveDateTime, _>("created_at").to_string(),
-                    updated_at: row.get::<chrono::NaiveDateTime, _>("updated_at").to_string(),
-                    username: row.get("username"),
-                    session_id: None,
-                }
-            })
+                id,
+                user_name,
+                user_email,
+                Utc::now(),
+                Utc::now(),
+            )
             .fetch_one(connection.get_ref())
-            .instrument(query_span).await;
-
+            .instrument(query_span)
+            .await;
             if query_res.is_err() {
                 tracing::error!("Failed to create user {:?}", query_res.unwrap_err());
                 return HttpResponse::InternalServerError().json(json!({
@@ -162,18 +136,18 @@ pub async fn authenticate_google(
                 }));
             }
             tracing::info!("Google Sign up event. user created successfully");
-            let user = query_res.unwrap();
-            // let user = User {
-            //     id: user_rec.id,
-            //     first_name: user_rec.first_name,
-            //     last_name: user_rec.last_name,
-            //     image_url: user_rec.profile_picture_url,
-            //     email: user_rec.email,
-            //     created_at: user_rec.created_at.to_string(),
-            //     updated_at: user_rec.updated_at.to_string(),
-            //     username: user_rec.username,
-            //     session_id: None,
-            // };
+            let user_rec = query_res.unwrap();
+            let user = User {
+                id: user_rec.id,
+                first_name: user_rec.first_name,
+                last_name: user_rec.last_name,
+                image_url: user_rec.profile_picture_url,
+                email: user_rec.email,
+                created_at: user_rec.created_at.to_string(),
+                updated_at: user_rec.updated_at.to_string(),
+                username: user_rec.username,
+                session_id: None,
+            };
             let session_result =
                 create_session(connection.as_ref(), user.clone(), SameSite::None).await;
             if session_result.is_err() {
