@@ -81,7 +81,7 @@ pub async fn profile_password_reset(
         }
         Err(err) => {
             tracing::error!("Database Error {}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
@@ -95,7 +95,7 @@ pub async fn profile_password_reset(
         }
         Err(err) => {
             tracing::error!("Can't get password hash {}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "Can't get password hash"
             }));
         }
@@ -131,7 +131,7 @@ pub async fn profile_password_reset(
         }
         Err(err) => {
             tracing::error!("Can't get new password hash {}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "Can't get password hash"
             }));
         }
@@ -158,7 +158,7 @@ pub async fn profile_password_reset(
         }
         Err(err) => {
             tracing::error!("Database Error {}", err);
-            HttpResponse::InternalServerError().json(json!({
+            HttpResponse::BadRequest().json(json!({
                     "Error": "something went wrong"
             }))
         }

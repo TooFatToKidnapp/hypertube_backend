@@ -61,7 +61,7 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
             hash.to_string()
         }
         Err(e) => {
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "Error": e.to_string()
             }));
         }
@@ -71,7 +71,7 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
     let mut transaction = match transaction_result {
         Ok(transaction) => transaction,
         Err(e) => {
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "Error": e.to_string()
             }));
         }
@@ -108,7 +108,7 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
                 let res = transaction.rollback().await;
                 if res.is_err() {
                     tracing::error!("failed to rollback changes in the database");
-                    return HttpResponse::InternalServerError().json(json!({
+                    return HttpResponse::BadRequest().json(json!({
                         "error": "failed to rollback changes in the database"
                     }));
                 }
@@ -121,12 +121,12 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
                 let res = transaction.rollback().await;
                 if res.is_err() {
                     tracing::error!("failed to rollback changes in the database");
-                    return HttpResponse::InternalServerError().json(json!({
+                    return HttpResponse::BadRequest().json(json!({
                         "error": "failed to rollback changes in the database"
                     }));
                 }
                 tracing::error!("Failed to create user {:?}", err);
-                return HttpResponse::InternalServerError().json(json!({
+                return HttpResponse::BadRequest().json(json!({
                     "error": "Failed to create user"
                 }));
             }
@@ -162,7 +162,7 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
             let res = transaction.commit().await;
             if res.is_err() {
                 tracing::error!("failed to write changes to the database");
-                return HttpResponse::InternalServerError().json(json!({
+                return HttpResponse::BadRequest().json(json!({
                     "error": "failed to write changes to the database"
                 }));
             }
@@ -172,12 +172,12 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
             let res = transaction.rollback().await;
             if res.is_err() {
                 tracing::error!("failed to rollback changes in the database");
-                return HttpResponse::InternalServerError().json(json!({
+                return HttpResponse::BadRequest().json(json!({
                     "error": "failed to rollback changes in the database"
                 }));
             }
             tracing::error!("database error {}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "database error"
             }));
         }

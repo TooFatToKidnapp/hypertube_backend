@@ -73,7 +73,7 @@ pub async fn update_profile_information(
     let mut transaction = match connection.begin().await {
         Ok(transaction) => transaction,
         Err(e) => {
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "Error": e.to_string()
             }));
         }
@@ -131,7 +131,7 @@ pub async fn update_profile_information(
             Err(err) => {
                 let _ = transaction.rollback().await;
                 tracing::error!("Database error {:#?}", err);
-                return HttpResponse::InternalServerError().json(json!({
+                return HttpResponse::BadRequest().json(json!({
                     "error": "something went wrong"
                 }));
             }
@@ -151,7 +151,7 @@ pub async fn update_profile_information(
         if update_email_query.is_err() {
             tracing::error!("Database error {:#?}", update_email_query.unwrap_err());
             let _ = transaction.rollback().await;
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
@@ -174,7 +174,7 @@ pub async fn update_profile_information(
         if update_first_name_query.is_err() {
             tracing::error!("Database error {:#?}", update_first_name_query.unwrap_err());
             let _ = transaction.rollback().await;
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
@@ -197,7 +197,7 @@ pub async fn update_profile_information(
         if update_last_name_query.is_err() {
             tracing::error!("Database error {:#?}", update_last_name_query.unwrap_err());
             let _ = transaction.rollback().await;
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
@@ -220,7 +220,7 @@ pub async fn update_profile_information(
         if update_username_query.is_err() {
             tracing::error!("Database error {:#?}", update_username_query.unwrap_err());
             let _ = transaction.rollback().await;
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
@@ -230,7 +230,7 @@ pub async fn update_profile_information(
         Ok(_) => {}
         Err(err) => {
             tracing::error!("Failed to save transaction  {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
@@ -263,7 +263,7 @@ pub async fn update_profile_information(
         }
         Err(err) => {
             tracing::error!("Database error  {:#?}", err);
-            HttpResponse::InternalServerError().json(json!({
+            HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }))
         }

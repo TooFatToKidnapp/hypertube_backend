@@ -1,4 +1,6 @@
 /target
 .env
 configuration.json
+.vscode
+logs.txt
 Download

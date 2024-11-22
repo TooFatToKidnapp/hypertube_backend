@@ -52,7 +52,7 @@ pub async fn sign_out_user(connection: Data<PgPool>, req: HttpRequest) -> HttpRe
         }
         Err(err) => {
             tracing::error!("Database error {:#?}", err);
-            HttpResponse::InternalServerError().finish()
+            HttpResponse::BadRequest().finish()
         }
     }
 }

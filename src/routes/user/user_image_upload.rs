@@ -119,7 +119,7 @@ pub async fn upload_user_profile_image(
             }
             Err(_) => {
                 tracing::error!("Failed to create aws client");
-                return HttpResponse::InternalServerError().json(json!({
+                return HttpResponse::BadRequest().json(json!({
                     "error": "Something went wrong"
                 }));
             }
@@ -163,7 +163,7 @@ pub async fn upload_user_profile_image(
                 Ok(_) => tracing::info!("File Deleted successfully"),
                 Err(err) => {
                     tracing::error!("Failed to delete file: {:?}", err);
-                    return HttpResponse::InternalServerError().json(json!({
+                    return HttpResponse::BadRequest().json(json!({
                         "error": "Something went wrong"
                     }));
                 }
@@ -190,7 +190,7 @@ pub async fn upload_user_profile_image(
             }
             Err(err) => {
                 tracing::error!("Failed to save file: {:?}", err);
-                return HttpResponse::InternalServerError().json(json!({
+                return HttpResponse::BadRequest().json(json!({
                     "error": "Something went wrong"
                 }));
             }
@@ -227,7 +227,7 @@ pub async fn upload_user_profile_image(
         }
         Err(err) => {
             tracing::error!("Database error {:#?}", err);
-            HttpResponse::InternalServerError().json(json!({
+            HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }))
         }

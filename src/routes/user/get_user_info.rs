@@ -94,7 +94,7 @@ pub async fn get_user(
         }
         Err(err) => {
             tracing::error!("Database Error {:#?}", err);
-            return HttpResponse::InternalServerError().json(json!({
+            return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
