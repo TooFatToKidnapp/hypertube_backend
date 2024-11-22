@@ -84,18 +84,14 @@ async fn create_user(
                         .cookie(cookie)
                         .json(json!({"OK":"user was created"}));
                 }
-                Err(_) => {
-                    HttpResponse::InternalServerError().json(json!({
-                        "error":"failed to generate session for user",
-                    }))
-                }
+                Err(_) => HttpResponse::InternalServerError().json(json!({
+                    "error":"failed to generate session for user",
+                })),
             }
         }
-        Err(_) => {
-            HttpResponse::InternalServerError().json(json!({
-                "error":"failed to create user",
-            }))
-        }
+        Err(_) => HttpResponse::InternalServerError().json(json!({
+            "error":"failed to create user",
+        })),
     }
 }
 
@@ -182,11 +178,9 @@ pub async fn authenticate_discord(
                         .cookie(cookie)
                         .json(json!({"OK":"user was found"}));
                 }
-                Err(_) => {
-                    HttpResponse::InternalServerError().json(json!({
-                        "Error":"failed to generate user session",
-                    }))
-                }
+                Err(_) => HttpResponse::InternalServerError().json(json!({
+                    "Error":"failed to generate user session",
+                })),
             }
         }
         Err(sqlx::Error::RowNotFound) => {
