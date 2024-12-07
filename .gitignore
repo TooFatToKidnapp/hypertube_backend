@@ -1,6 +1,4 @@
-/target
-.env
-configuration.json
-.vscode
-logs.txt
-Download
+postgres_data
+rqbit_cache
+rqbit_db
+*.env*

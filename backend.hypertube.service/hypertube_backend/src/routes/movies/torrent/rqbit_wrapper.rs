@@ -42,7 +42,8 @@ impl Default for RqbitWrapper {
             Ok(dir) => dir.display().to_string(),
             Err(_err) => "/tmp/Download".to_string(),
         };
-        RqbitWrapper::new("http://127.0.0.1:3030", current_working_dir)
+
+        RqbitWrapper::new(env::var("RQBIT_HOST").unwrap().as_str(), current_working_dir)
     }
 }
 

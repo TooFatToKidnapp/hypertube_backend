@@ -433,6 +433,7 @@ pub async fn movie_db_handler(
         search_params.page
     );
     let movie_db_token = std::env::var("MOVIE_DB_AUTH_TOKEN").unwrap();
+    tracing::info!("token: {}", &movie_db_token);
     let client = reqwest::Client::new();
     let search_query_res = client
         .get(search_url)
@@ -445,6 +446,8 @@ pub async fn movie_db_handler(
 
     let response = match search_query_res {
         Ok(res) => {
+            
+            tracing::info!("RESPONSE ERROR ::: {:#?}", &res);
             tracing::info!("Got Movie db search response");
             res
         }

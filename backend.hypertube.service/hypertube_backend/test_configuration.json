@@ -1,7 +1,7 @@
 {
 	"application_port": 8000,
 	"database": {
-		"host": "ep-tiny-hill-a54ji6wb.us-east-2.aws.neon.tech",
+		"host": "postgres",
 		"port": 5432,
 		"user_name": "hyper_tube_owner",
 		"password": "Pm4B0EdbpYUy",

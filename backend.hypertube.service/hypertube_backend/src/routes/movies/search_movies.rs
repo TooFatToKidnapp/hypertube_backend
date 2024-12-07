@@ -89,12 +89,14 @@ pub async fn get_movies_search(
         match result {
             Ok(response) => {
                 tracing::info!("Got Movie DB search response");
+                tracing::info!("RESPONSE ::: {:#?}", &response);
                 return HttpResponse::Ok().json(json!({
                     "data": response
                 }));
             }
             Err(err) => {
                 tracing::error!("Movie DB ERROR");
+                tracing::info!("RESPONSE ERROR ::: {:#?}", &err);
                 return HttpResponse::BadRequest().json(json!({
                     "error": err
                 }));

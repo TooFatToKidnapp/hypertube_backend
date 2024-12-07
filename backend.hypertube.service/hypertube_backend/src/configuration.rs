@@ -1,5 +1,6 @@
 use config::{Config, File, FileFormat};
 use serde::Deserialize;
+use std::env;
 
 #[derive(Deserialize, Debug)]
 pub struct Settings {
@@ -18,10 +19,11 @@ pub struct DatabaseSettings {
 
 impl DatabaseSettings {
     pub fn connection_string(&self) -> String {
-        format!(
-            "postgresql://{}:{}@{}:{}/{}",
-            self.user_name, self.password, self.host, self.port, self.database_name
-        )
+        env::var("DATABASE_URL").unwrap().to_string()
+        // format!(
+        //     "postgresql://{}:{}@{}:{}/{}",
+        //     self.user_name, self.password, self.host, self.port, self.database_name
+        // )
     }
 }
 

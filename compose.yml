@@ -1,0 +1,39 @@
+version: '3'
+services:
+  backend.hypertube:
+    build: "./backend.hypertube.service"
+    # command: sleep infinity
+    volumes:
+      - ./backend.hypertube.service/hypertube_backend:/hypertube_backend
+    depends_on:
+      - postgres
+      - rqbit
+    ports:
+      - 8000:8000
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '3.0'
+    #       memory: 6G
+    #     reservations:
+    #       cpus: '2.0'
+    #       memory: 4G
+  postgres:
+    image: postgres:latest
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+  rqbit:
+    image: ikatson/rqbit
+    # network_mode: host
+    ports:
+      - 3030:3030 # HTTP API port
+    env_file: .env
+    volumes:
+      - ./rqbit_db:/home/rqbit/db
+      - ./rqbit_cache:/home/rqbit/cache
+      - /${RQBIT_DOWNLOAD_FOLDER}:/home/rqbit/downloads
