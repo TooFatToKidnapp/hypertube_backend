@@ -1,9 +1,10 @@
 use chrono::NaiveDate;
 use serde::Deserialize;
+use serde::Serialize;
 use serde_json::Value;
 use sqlx;
 
-#[derive(Deserialize, Debug, Default, PartialEq, Clone, sqlx::Type)]
+#[derive(Deserialize, Serialize, Debug, Default, PartialEq, Clone, sqlx::Type)]
 pub struct ImdbMovieDetails {
     pub id: String,
     pub primary_title: String,
@@ -14,7 +15,7 @@ pub struct ImdbMovieDetails {
     pub start_year: i32,
     pub end_year: i32,
     pub runtime_minutes: i32,
-    pub average_rating: f32,
+    pub average_rating: String,
     pub num_votes: i32,
     pub description: String,
     pub primary_image: String,
@@ -28,7 +29,7 @@ pub struct ImdbMovieDetails {
     pub directors: Vec<Value>,
     pub writers: Vec<Value>,
     pub cast: Vec<Value>,
-    pub budget: f64,
-    pub gross_world_wide: f64,
+    pub budget: i32,//f64,
+    pub gross_world_wide: i32,//f64,
     pub torrents: Vec<Value>,
 }

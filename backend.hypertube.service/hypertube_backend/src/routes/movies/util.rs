@@ -460,6 +460,66 @@ async fn find_torrents(search_params: &SearchQueryMetadata) -> Result<Vec<Value>
 }
 
 
+async fn get_top_imdb_movies() -> Result<Vec<Value>, String> {
+
+    let client = reqwest::Client::new();
+
+    let imdb_search_host = std::env::var("IMDB_SEARCH_HOST").unwrap();
+    let imdb_search_token = std::env::var("IMDB_SEARCH_TOKEN").unwrap();
+
+    let search_url = format!("https://{}/imdb/top250-movies",
+    imdb_search_host
+    );
+
+    let search_movie_res = client
+    .get(search_url)
+    .header("x-rapidapi-key", &imdb_search_token)
+    .header("x-rapidapi-host",& imdb_search_host)
+    .send()
+    .await;
+
+    let response = match search_movie_res {
+    Ok(val) => { 
+        tracing::info!("Got IMDB search response");
+        tracing::info!("IMDB search response:: {:#?}", val);
+        val 
+    }
+    Err(err) => {
+        tracing::error!("SEARCH MOVIE ERROR : {:#?}", err);
+        return Err(err.to_string());
+    }
+    };
+
+    if response.status() == 429{
+    return Err(String::from("you exceeded your daily QUOTA"));
+    }
+
+    let response_body = response.json::<serde_json::Value>().await;
+
+    let res = match response_body {
+    Ok(val) => { 
+        tracing::info!("SEARCh body:::: {:#?}", val);
+        val
+    }
+    Err(err) => {
+        tracing::error!("Failed to get search response body");
+        return Err(err.to_string());
+    }
+    };
+
+    if res["items"].as_array().is_none() {
+    tracing::error!("No result in search response body");
+    return Err(String::from("No result in search response body"));
+    }
+
+    let movie_search_arr = res["items"].as_array().unwrap();
+
+    return Ok(movie_search_arr.clone());
+}
+
+
+
+
 
 async fn find_movies(search_params: &SearchQueryMetadata) -> Result<Vec<Value>, String> {
 
@@ -545,7 +605,7 @@ async fn save_imdb_movie_details(
             movie.start_year,
             movie.end_year,
             movie.runtime_minutes,
-            BigDecimal::from_str(&movie.average_rating.to_string()).unwrap(),
+            movie.average_rating,
             movie.num_votes,
             movie.description,
             movie.primary_image,
@@ -556,8 +616,8 @@ async fn save_imdb_movie_details(
             &movie.external_links,
             &movie.spoken_languages,
             &movie.filming_locations,
-            BigDecimal::from_str(&movie.budget.to_string()).unwrap(),
-            BigDecimal::from_str(&movie.gross_world_wide.to_string()).unwrap(),
+            movie.budget,
+            movie.gross_world_wide,
             &movie.directors,
             &movie.writers,
             &movie.cast,
@@ -697,8 +757,8 @@ async fn get_movies_list(
                         start_year: movie["startYear"].as_i64().unwrap() as i32,
                         end_year: 0,
                         runtime_minutes: movie["runtimeMinutes"].as_i64().unwrap() as i32,
-                        average_rating: movie["averageRating"].as_f64().unwrap() as f32,
-                        num_votes: movie["numVotes"].as_i64().unwrap() as i32,
+                        average_rating: movie["averageRating"].as_f64().unwrap().to_string(),
+                        num_votes: movie["numVotes"].as_i64().unwrap_or(-1) as i32,
                         description: movie["description"].as_str().unwrap().to_string(),
                         primary_image: movie["primaryImage"].as_str().unwrap().to_string(),
                         content_rating: movie["contentRating"].as_str().unwrap().to_string(),
@@ -711,8 +771,8 @@ async fn get_movies_list(
                         directors: movie["directors"].as_array().unwrap().clone(),
                         writers: movie["directors"].as_array().unwrap().clone(),
                         cast: movie["directors"].as_array().unwrap().clone(),
-                        gross_world_wide: movie["budget"].as_f64().unwrap(),
-                        budget: movie["budget"].as_f64().unwrap(),
+                        gross_world_wide: movie["budget"].as_i64().unwrap_or(-1) as i32,
+                        budget: movie["budget"].as_i64().unwrap_or(-1) as i32,
                         torrents: Vec::new(),
                     };
                     details.torrents.push(torrent.clone());
@@ -745,14 +805,7 @@ pub async fn movie_db_handler(
     search_params: &SearchQueryMetadata,
 ) -> Result<serde_json::Value, String> {
 
-    let client = reqwest::Client::new();
-    
-    let imdb_search_host = std::env::var("IMDB_SEARCH_HOST").unwrap();
-    let imdb_search_token = std::env::var("IMDB_SEARCH_TOKEN").unwrap();
-
-    //////////////////////////////////////////
     ////////// SEARCH TORRENT ////////////////
-    //////////////////////////////////////////
     
     let find_torrent_res = find_torrents(search_params).await;
     let movie_torrent_arr = match find_torrent_res {
@@ -761,10 +814,8 @@ pub async fn movie_db_handler(
     };
 
     tracing::info!("MOVIE torrents :: {:#?}", movie_torrent_arr);
-    //////////////////////////////////////////
+
     ////////// SEARCH MOVIES /////////////////
-    //////////////////////////////////////////
-    
 
     let find_movies_res = find_movies(search_params).await;
 
@@ -777,14 +828,7 @@ pub async fn movie_db_handler(
         }
     };
 
-    //////////////////////////////////////////
     ////////// SEARCH MOVIES END /////////////
-    //////////////////////////////////////////
-
-
-    // let mut filtered_arr :Vec<Value> = Vec::new();
-
-    // movie_search_arr.iter().for_each( |movie| {
 
     let movies_list_res = get_movies_list(connection, query_span.clone(), &movie_search_arr, &movie_torrent_arr).await;
 
@@ -796,9 +840,6 @@ pub async fn movie_db_handler(
             return Err(err);
         }
     };
-
-    
-    // tracing::info!("THE Final LIST ::: {:#?}", filtered_arr);
 
     let mut client_response = json!({
         "limit": movies_list.len(),
@@ -830,7 +871,6 @@ pub async fn movie_db_handler(
 
     let client_res_movie_arr = client_response["movies"].as_array_mut().unwrap();
 
-    // for movie in movies_list.iter() {
     for (id, movie) in movies_list{
 
         let mut movie_content = json!({

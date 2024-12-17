@@ -11,7 +11,7 @@ Create Table If Not Exists imdb_movie_details (
     "start_year"   integer,
     "end_year" integer,
     "runtime_minutes"  integer,
-    "average_rating"   numeric,
+    "average_rating"   VARCHAR(6),
     "num_votes"    integer,
     "description" Text,
     "primary_image"    Text,
@@ -25,7 +25,7 @@ Create Table If Not Exists imdb_movie_details (
     "directors"   json[],
     "writers" json[],
     "cast"    json[],
-    "budget"  numeric,
-    "gross_world_wide"  numeric,
+    "budget"  integer,
+    "gross_world_wide"  integer,
     "torrents"    json[]
 )
