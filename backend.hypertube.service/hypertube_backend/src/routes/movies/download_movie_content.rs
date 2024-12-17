@@ -13,7 +13,7 @@ use tracing::Instrument; // Import the missing type
 
 #[derive(Deserialize)]
 pub struct MovieInfo {
-    pub movie_id: i32,
+    pub movie_id: String,
     pub source: Source,
     pub magnet_url: String,
 }
@@ -43,6 +43,9 @@ pub async fn download_torrent(
         );
         base_path
     };
+
+    tracing::info!("DOWNLOAD PATH: {}", download_path);
+
     let meta_data = match torrent_client
         .download_torrent(&body.magnet_url, Some(download_path))
         .await
@@ -66,7 +69,7 @@ pub async fn download_torrent(
     "#)
     .bind(Uuid::new_v4())
     .bind(body.source.clone() as Source)
-    .bind(body.movie_id)
+    .bind(body.movie_id.clone())
     .bind(Utc::now())
     .bind(meta_data.path.clone())
     .bind(meta_data.id.parse::<i32>().unwrap())
@@ -81,7 +84,7 @@ pub async fn download_torrent(
             tracing::info!("torrent created successfully!");
             let _ = schedule_handler(
                 &corn_job_handler,
-                CronJobScheduler::build_job_id(body.movie_id, body.source.clone()),
+                CronJobScheduler::build_job_id(body.movie_id.clone(), body.source.clone()),
                 &connection,
             )
             .await;

@@ -23,7 +23,7 @@ impl CronJobScheduler {
             scheduled_jobs: Arc::new(Mutex::new(HashMap::new())),
         }
     }
-    pub fn build_job_id(movie_id: i32, source: Source) -> String {
+    pub fn build_job_id(movie_id: String, source: Source) -> String {
         format!("{}_{}", movie_id, source)
     }
 }

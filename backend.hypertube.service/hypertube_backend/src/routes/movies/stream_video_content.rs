@@ -16,7 +16,7 @@ use tracing::Instrument;
 
 #[derive(Deserialize)]
 pub struct StreamInfo {
-    pub movie_id: i32,
+    pub movie_id: String,
     pub source: Source,
     // check if the requested quality exist's else start the conversion
     pub _quality: MovieQuality,
@@ -36,7 +36,7 @@ pub async fn stream_video_content(
             SELECT * FROM movie_torrent WHERE movie_id = $1 AND movie_source = $2
         "#,
     )
-    .bind(path_info.movie_id)
+    .bind(path_info.movie_id.clone())
     .bind(path_info.source.clone() as Source)
     .fetch_one(connection.as_ref())
     .instrument(query_span)
@@ -91,12 +91,12 @@ pub async fn stream_video_content(
     // set movie as watched
     let _ = cancel_job(
         &mut corn_job_handler,
-        CronJobScheduler::build_job_id(path_info.movie_id, path_info.source.clone()),
+        CronJobScheduler::build_job_id(path_info.movie_id.clone(), path_info.source.clone()),
     )
     .await;
     let _ = schedule_handler(
         &corn_job_handler,
-        CronJobScheduler::build_job_id(path_info.movie_id, path_info.source.clone()),
+        CronJobScheduler::build_job_id(path_info.movie_id.clone(), path_info.source.clone()),
         &connection,
     )
     .await;
