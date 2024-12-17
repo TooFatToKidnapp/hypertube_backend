@@ -9,6 +9,7 @@ mod search_movies;
 mod stream_video_content;
 mod torrent;
 mod util;
+mod types;
 
 pub use cron_job_scheduler::*;
 pub use delete_torrent::*;

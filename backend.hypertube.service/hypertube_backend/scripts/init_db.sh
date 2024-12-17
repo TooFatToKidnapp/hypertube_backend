@@ -20,11 +20,11 @@ fi
 
 
 #Check if a custom user has been set, otherwise default to 'postgres'
-DB_USER=${POSTGRES_USER:=postgres}
+DB_USER=${POSTGRES_USER:=hyper_tube_owner}
 # Check if a custom password has been set, otherwise default to 'password'
-DB_PASSWORD="${POSTGRES_PASSWORD:=password}"
+DB_PASSWORD="${POSTGRES_PASSWORD:=Pm4B0EdbpYUy}"
 # Check if a custom database name has been set, otherwise default to 'newsletter'
-DB_NAME="${POSTGRES_DB:=hyper_tube}"
+DB_NAME="${POSTGRES_DB:=hyper_tube_tests}"
 # Check if a custom port has been set, otherwise default to '5432'
 DB_PORT="${POSTGRES_PORT:=5432}"
 DB_HOST="${POSTGRES_HOST:=localhost}"
@@ -61,7 +61,7 @@ sleep 5
 echo "Postgres is up and running on port ${DB_PORT} - running migrations now!"
 
 export DATABASE_URL=postgres://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
-cd ..
+# cd ..
 sqlx database create
 sqlx migrate run
 
