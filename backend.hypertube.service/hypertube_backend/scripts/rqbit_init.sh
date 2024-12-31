@@ -12,7 +12,7 @@ docker run \
     --env-file .env \
     -v "$(pwd)/rqbit_db:/home/rqbit/db" \
     -v "$(pwd)/rqbit_cache:/home/rqbit/cache" \
-    -v "/goinfre/Downloads:/home/rqbit/downloads" \
+    -v "$(pwd)/Downloads:/home/rqbit/downloads" \
     -d \
     --name "rqbit" \
     ikatson/rqbit

@@ -1,6 +1,6 @@
 use reqwest::Client;
 use serde_json::Value;
-use std::env;
+use std::{env, path::PathBuf};
 pub struct RqbitWrapper {
     pub origin: String,
     pub download_path: String,
@@ -36,13 +36,22 @@ impl FileInfo {
     }
 }
 
+fn get_download_folder() -> Result<PathBuf, String> {
+    let current_dir = env::current_dir().map_err(|err| format!("failed to get current directory{}", err))?;
+    let parent_dir = current_dir.parent().ok_or("Failed to get parrent Directory")?;
+    let target_folder = parent_dir.join("Downloads");
+
+    Ok(target_folder)
+}
+
 impl Default for RqbitWrapper {
     fn default() -> Self {
-        let current_working_dir = match env::current_dir() {
-            Ok(dir) => dir.display().to_string(),
-            Err(_err) => "/tmp/Download".to_string(),
-        };
-
+        // let current_working_dir = match env::current_dir() {
+            // Ok(dir) => dir.display().to_string(),
+            // Err(_err) => "/tmp/Download".to_string(),
+        // };
+        let current_working_dir = "/home/rqbit/downloads";
+        tracing::info!("RQBIT WORKING DIR: {}", current_working_dir);
         RqbitWrapper::new(env::var("RQBIT_HOST").unwrap().as_str(), current_working_dir)
     }
 }
@@ -99,19 +108,28 @@ impl RqbitWrapper {
         Ok(())
     }
 
+
+
     pub async fn download_torrent(
         &self,
         magnet: impl Into<String>,
         output_folder: Option<String>,
     ) -> Result<FileInfo, String> {
         let client = Client::new();
+        let rqbit_base_path = "/home/rqbit/downloads";
         let url = {
-            let mut base = format!("{}/torrents", self.origin.as_str());
+
+            let mut base: String;
             if output_folder.is_some() {
-                base.push_str(format!("?output_folder={}", output_folder.clone().unwrap()).as_str())
+                base = format!("{}/torrents", self.origin.as_str());
+                base.push_str(format!("?output_folder={}/{}", rqbit_base_path ,output_folder.clone().unwrap().as_str()).as_str());
+            }
+            else {
+                base = format!("{}/torrents", self.origin.as_str());
             }
             base
         };
+        tracing::info!("DOWNLOAD URL: {}", url);
         let response = match client.post(url).body(magnet.into()).send().await {
             Ok(res) => match res.json::<Value>().await {
                 Ok(body) => body,
@@ -132,6 +150,13 @@ impl RqbitWrapper {
         };
         let mut torrent_path = {
             if let Some(output_path) = output_folder {
+                // let base = get_download_folder();
+                // let base = match get_download_folder() {
+                //     Ok(val) => val,
+                //     Err(err) => return Err(err)
+
+                // };
+                // base.join(output_path).to_str().unwrap().to_string()
                 output_path
             } else {
                 self.download_path.clone()

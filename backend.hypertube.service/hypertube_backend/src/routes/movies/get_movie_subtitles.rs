@@ -3,6 +3,7 @@ use actix_web::{
     web::{Data, Json},
     HttpResponse,
 };
+use aws_config::imds::client;
 // use reqwest::Client;
 use serde_json::json;
 use sqlx::{PgPool, Row};
@@ -11,7 +12,7 @@ use uuid::Uuid;
 
 #[derive(serde::Deserialize, Debug)]
 pub struct SubtitleInfo {
-    pub movie_id: i32,
+    pub movie_id: String,
     pub source: Source,
     pub lang: Option<String>,
 }
@@ -36,27 +37,30 @@ pub async fn get_movie_subtitles(
 
     let query_span = tracing::info_span!("Get Movie Subtitles Handler");
 
-    let (_movie_record_id, _movie_dir_path) = match sqlx::query(
+    let (id, path) = match sqlx::query(
         r#"
-    SELECT * FROM movie_torrent WHERE movie_id = $1 AND movie_source = $2
+    SELECT * FROM subtiteles WHERE movie_id = $1
     "#,
     )
-    .bind(request_body.movie_id)
-    .bind(request_body.source.clone() as Source)
+    .bind(&request_body.movie_id)
+    // .bind(request_body.source.clone() as Source)
     .fetch_optional(connection.as_ref())
     .instrument(query_span.clone())
     .await
     {
         Ok(Some(row)) => {
             tracing::info!("Found movie record in the database");
-            let path = row.get::<String, &str>("movie_path");
+            let subtitle_path = row.get::<String, &str>("path");
             (
                 row.get::<Uuid, &str>("id"),
-                path.split_at(path.rfind('/').unwrap()).0.to_string(),
+                subtitle_path.split_at(subtitle_path.rfind('/').unwrap()).0.to_string(),
             )
         }
         Ok(None) => {
-            tracing::info!("Movie record not found");
+            let client = reqwest::Client::new();
+            let url = format!("https://api.opensubtitles.com/api/v1/subtitles?imdb_id={}", request_body.movie_id);
+            let response = client.get("");
+            // let SubtitleInfo
             return HttpResponse::NotFound().finish();
         }
         Err(err) => {
