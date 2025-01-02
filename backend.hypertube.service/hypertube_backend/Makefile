@@ -2,10 +2,10 @@
 all: init_db rqbit_init build
 
 init_db: scripts/init_db.sh
-	sh scripts/init_db.sh
+	bash scripts/init_db.sh
 
 rqbit_init: scripts/rqbit_init.sh
-	sh scripts/rqbit_init.sh
+	bash scripts/rqbit_init.sh
 
 build: src/
 	cargo run build

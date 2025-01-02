@@ -1,4 +1,6 @@
 use std::process::Command;
+use std::env;
+use std::path::PathBuf;
 
 use crate::routes::{schedule_handler, CronJobScheduler};
 
@@ -79,7 +81,11 @@ pub async fn download_torrent(
 
     if (meta_data.file_type != "mp4" || meta_data.file_type != "webm"){
         tracing::info!("--------HERE START CONVERT TO MKV---------");
-        let converted_path = format!("{}/{}",get_download_folder(), "videos/converted/video");
+        let converted_path = match get_download_folder() {
+            Ok(path) => format!("{}/{}", path.display(), "videos/converted/video"),
+            Err(e) => return HttpResponse::InternalServerError().finish(),
+        };
+        // let converted_path = format!("{}/{}",, "videos/converted/video");
         convert_video(&meta_data.path, &converted_path, "mkv");
         convert_video(&meta_data.path, &converted_path, "m3u8");
 
