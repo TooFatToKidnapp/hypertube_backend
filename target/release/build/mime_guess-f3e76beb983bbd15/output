@@ -1,0 +1,1 @@
+cargo:rustc-env=MIME_TYPES_GENERATED_PATH=/goinfre/aabdou/hypertube_backend/target/release/build/mime_guess-f3e76beb983bbd15/out/mime_types_generated.rs

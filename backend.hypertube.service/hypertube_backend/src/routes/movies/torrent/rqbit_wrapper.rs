@@ -43,7 +43,10 @@ impl Default for RqbitWrapper {
             Err(_err) => "/tmp/Download".to_string(),
         };
 
-        RqbitWrapper::new(env::var("RQBIT_HOST").unwrap().as_str(), current_working_dir)
+        RqbitWrapper::new(
+            env::var("RQBIT_HOST").unwrap().as_str(),
+            current_working_dir,
+        )
     }
 }
 

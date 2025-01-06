@@ -1,0 +1,18 @@
+/goinfre/aabdou/hypertube_backend/target/debug/deps/libaws_types-1440595bc9a95b27.rmeta: /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/lib.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/app_name.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/build_metadata.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/endpoint_config.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/origin.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/os_shim_internal.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/region.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/request_id.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/sdk_config.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/service_config.rs /goinfre/aabdou/hypertube_backend/target/debug/build/aws-types-49c72fd77b0acbec/out/build_env.rs
+
+/goinfre/aabdou/hypertube_backend/target/debug/deps/aws_types-1440595bc9a95b27.d: /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/lib.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/app_name.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/build_metadata.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/endpoint_config.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/origin.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/os_shim_internal.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/region.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/request_id.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/sdk_config.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/service_config.rs /goinfre/aabdou/hypertube_backend/target/debug/build/aws-types-49c72fd77b0acbec/out/build_env.rs
+
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/lib.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/app_name.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/build_metadata.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/endpoint_config.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/origin.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/os_shim_internal.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/region.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/request_id.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/sdk_config.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/aws-types-1.3.3/src/service_config.rs:
+/goinfre/aabdou/hypertube_backend/target/debug/build/aws-types-49c72fd77b0acbec/out/build_env.rs:
+
+# env-dep:CARGO_PKG_VERSION=1.3.3
+# env-dep:OUT_DIR=/goinfre/aabdou/hypertube_backend/target/debug/build/aws-types-49c72fd77b0acbec/out

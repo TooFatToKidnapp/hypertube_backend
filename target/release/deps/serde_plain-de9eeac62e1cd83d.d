@@ -1,0 +1,11 @@
+/goinfre/aabdou/hypertube_backend/target/release/deps/libserde_plain-de9eeac62e1cd83d.rmeta: /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/lib.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/de.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/error.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/macros.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/ser.rs
+
+/goinfre/aabdou/hypertube_backend/target/release/deps/libserde_plain-de9eeac62e1cd83d.rlib: /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/lib.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/de.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/error.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/macros.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/ser.rs
+
+/goinfre/aabdou/hypertube_backend/target/release/deps/serde_plain-de9eeac62e1cd83d.d: /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/lib.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/de.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/error.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/macros.rs /Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/ser.rs
+
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/lib.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/de.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/error.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/macros.rs:
+/Users/aabdou/.cargo/registry/src/index.crates.io-6f17d22bba15001f/serde_plain-1.0.2/src/ser.rs:

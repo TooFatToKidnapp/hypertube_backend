@@ -446,7 +446,6 @@ pub async fn movie_db_handler(
 
     let response = match search_query_res {
         Ok(res) => {
-            
             tracing::info!("RESPONSE ERROR ::: {:#?}", &res);
             tracing::info!("Got Movie db search response");
             res

@@ -1,12 +1,15 @@
 use actix_web::cookie::SameSite;
+use actix_web::web::Query;
 use actix_web::HttpResponse;
 use actix_web::{
     http,
     web::{self, Data},
 };
 use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, StateCode};
+use passport_strategies::passport::{Choice, Passport};
 use passport_strategies::strategies::DiscordStrategy;
 use sqlx::PgPool;
+use tokio::sync::RwLock;
 use std::env;
 
 use crate::middleware::User;
@@ -81,8 +84,7 @@ async fn create_user(
             match session {
                 Ok(cookie) => {
                     return HttpResponse::Ok()
-                        .cookie(cookie)
-                        .json(json!({"OK":"user was created"}));
+                        .cookie(cookie);
                 }
                 Err(_) => HttpResponse::InternalServerError().json(json!({
                     "error":"failed to generate session for user",
@@ -96,41 +98,30 @@ async fn create_user(
 }
 
 pub async fn authenticate_discord(
-    auth: Data<AppState>,
-    authstate: web::Query<StateCode>,
+    passport: Data<RwLock<Passport>>,
+    Query(statecode): Query<StateCode>,
     connection: Data<PgPool>,
 ) -> HttpResponse {
     let query_span = tracing::info_span!("Discord Passport Event");
     println!(
         "got query {:#?}",
         json!({
-            "data" : authstate.0
+            "data" : statecode
         })
     );
 
-    let mut auth = auth.discord_passport.write().await;
+    let mut auth = passport.write().await;
 
-    auth.authenticate("discord");
-    let profile = match auth.get_profile(authstate.0).await {
-        Ok(response) => {
-            let res = match response {
-                PassportResponse::Profile(profile) => {
-                    tracing::info!("Got Discord Profile");
-                    profile
-                }
-                PassportResponse::FailureRedirect(failure) => {
-                    println!("------- FAILURE redirect from no PROFILE ---------");
-                    tracing::info!("didn't get user Discord profile. user redirected");
-                    return HttpResponse::SeeOther()
-                        .append_header((http::header::LOCATION, failure.to_string()))
-                        .finish();
-                }
-            };
-            res
+    let (profile, success_redirect_url) = match auth.authenticate(Choice::Discord, statecode).await {
+        (Some(response), url) => {
+            tracing::info!("Got Discord Profile");
+            (response.profile, url)
         }
-        Err(error) => {
-            tracing::error!("Error: Bad Discord Profile response");
-            return HttpResponse::BadRequest().body(error.to_string());
+        (None, url) => {
+            tracing::info!("didn't get user Discord profile. user redirected");
+            return HttpResponse::SeeOther()
+                .append_header((http::header::LOCATION, url))
+                .finish();
         }
     };
 
@@ -169,14 +160,14 @@ pub async fn authenticate_discord(
                 session_id: None,
             };
 
-            tracing::info!("Google Log in event. user email found in the database");
+            tracing::info!("Github Log in event. user email found in the database");
             let session_result =
                 create_session(connection.as_ref(), user.clone(), SameSite::None).await;
             match session_result {
                 Ok(cookie) => {
                     return HttpResponse::Ok()
                         .cookie(cookie)
-                        .json(json!({"OK":"user was found"}));
+                        .json(json!({"url": success_redirect_url}));
                 }
                 Err(_) => HttpResponse::InternalServerError().json(json!({
                     "Error":"failed to generate user session",
@@ -195,23 +186,23 @@ pub async fn authenticate_discord(
     }
 }
 
-pub fn generate_discord_passport() -> PassPortBasicClient {
-    let mut passport = PassPortBasicClient::default();
-    let mut backend_url = env::var("BACKEND_URL").unwrap();
+// pub fn generate_discord_passport() -> PassPortBasicClient {
+//     let mut passport = PassPortBasicClient::default();
+//     let mut backend_url = env::var("BACKEND_URL").unwrap();
 
-    let scope = env::var("CLIENT_SCOPE_DISCORD").unwrap();
-    let scopes: Vec<&str> = scope.split(',').collect();
+//     let scope = env::var("CLIENT_SCOPE_DISCORD").unwrap();
+//     let scopes: Vec<&str> = scope.split(',').collect();
 
-    backend_url.push_str("/redirect/discord");
-    passport.using(
-        "discord",
-        DiscordStrategy::new(
-            env::var("CLIENT_ID_DISCORD").unwrap().as_str(),
-            env::var("CLIENT_SECRET_DISCORD").unwrap().as_str(),
-            scopes,
-            backend_url.as_str(),
-            env::var("FAILURE_REDIRECT_URI").unwrap().as_str(),
-        ),
-    );
-    passport
-}
+//     backend_url.push_str("/redirect/discord");
+//     passport.using(
+//         "discord",
+//         DiscordStrategy::new(
+//             env::var("CLIENT_ID_DISCORD").unwrap().as_str(),
+//             env::var("CLIENT_SECRET_DISCORD").unwrap().as_str(),
+//             scopes,
+//             backend_url.as_str(),
+//             env::var("FAILURE_REDIRECT_URI").unwrap().as_str(),
+//         ),
+//     );
+//     passport
+// }

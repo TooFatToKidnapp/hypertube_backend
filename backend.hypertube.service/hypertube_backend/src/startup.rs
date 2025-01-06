@@ -1,4 +1,4 @@
-use crate::passport::{configure_passport_service, passport_route_auth, passport_route_redirect};
+use crate::passport::{generate_passports, passport_route_auth, passport_route_redirect};
 use crate::routes::hello_world::handler;
 use crate::routes::movies::movie_source;
 use crate::routes::password_rest::password_source;
@@ -12,6 +12,7 @@ use actix_web::{
 };
 use sqlx::PgPool;
 use std::net::TcpListener;
+use tokio::sync::RwLock;
 use tracing_actix_web::TracingLogger;
 
 use actix_cors::Cors;
@@ -32,10 +33,13 @@ fn configure_cors(frontend_url: &str) -> Cors {
         .max_age(3600)
 }
 
-pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Error> {
+pub fn run_server(
+    listener: TcpListener,
+    db_pool: PgPool,
+) -> Result<Server, Box<dyn std::error::Error>> {
     dotenv().ok();
     let db_pool = Data::new(db_pool);
-    let passport_state = Data::new(configure_passport_service());
+    let passport_state = Data::new(RwLock::new(generate_passports()?));
     let cron_task_handler = Data::new(CronJobScheduler::new());
     let frontend_url = env::var("FRONTEND_URL").expect("FRONTEND_URL must be set");
 

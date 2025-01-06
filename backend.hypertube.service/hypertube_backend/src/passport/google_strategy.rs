@@ -1,59 +1,46 @@
 use actix_web::cookie::SameSite;
+use actix_web::web::Query;
 use actix_web::HttpResponse;
 use actix_web::{
     http,
-    web::{self, Data},
+    web::Data,
 };
-use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, StateCode};
-use passport_strategies::strategies::GoogleStrategy;
+use passport_strategies::passport::{Choice, Passport, StateCode};
 use serde_json::json;
 use sqlx::PgPool;
-use std::env;
+use tokio::sync::RwLock;
 
-use super::AppState;
 use crate::middleware::User;
 use crate::routes::create_session;
-use chrono::Utc;
-use tracing::Instrument;
 
-pub async fn google(passport: Data<AppState>) -> HttpResponse {
-    tracing::info!("Google Oauth2 called");
-    let mut auth = passport.google_passport.write().await;
-    auth.authenticate("google");
-    let url = auth.generate_redirect_url();
-    HttpResponse::Ok().json(json!({
-        "redirect_url" : url
-    }))
-}
+// pub async fn google(passport: Data<RwLock<Passport>>) -> HttpResponse {
+//     tracing::info!("Google Oauth2 called");
+//     let mut auth = passport.write().await;
+//     auth.authenticate("google");
+//     let url = auth.generate_redirect_url();
+//     HttpResponse::Ok().json(json!({
+//         "redirect_url" : url
+//     }))
+// }
 
 pub async fn authenticate_google(
-    auth: Data<AppState>,
-    authstate: web::Query<StateCode>,
+    passport: Data<RwLock<Passport>>,
+    Query(statecode): Query<StateCode>,
     connection: Data<PgPool>,
 ) -> HttpResponse {
     let query_span = tracing::info_span!("Google Passport Event");
 
-    let mut auth = auth.google_passport.write().await;
-    auth.authenticate("google");
-    let profile = match auth.get_profile(authstate.0).await {
-        Ok(response) => {
-            let res = match response {
-                PassportResponse::Profile(profile) => {
-                    tracing::info!("Got Google Profile");
-                    profile
-                }
-                PassportResponse::FailureRedirect(failure) => {
-                    tracing::info!("didn't get user Google profile. user redirected");
-                    return HttpResponse::SeeOther()
-                        .append_header((http::header::LOCATION, failure.to_string()))
-                        .finish();
-                }
-            };
-            res
+    let mut auth = passport.write().await;
+    let (profile, success_redirect_url) = match auth.authenticate(Choice::Google, statecode).await {
+        (Some(response), url) => {
+            tracing::info!("Got Google Profile");
+            (response.profile, url)
         }
-        Err(error) => {
-            tracing::error!("Error: Bad Google Profile response");
-            return HttpResponse::BadRequest().body(error.to_string());
+        (None, url) => {
+            tracing::info!("didn't get user Google profile. user redirected");
+            return HttpResponse::SeeOther()
+                .append_header((http::header::LOCATION, url))
+                .finish();
         }
     };
 
@@ -159,7 +146,10 @@ pub async fn authenticate_google(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().cookie(session_result.unwrap()).finish()
+            HttpResponse::Ok().cookie(session_result.unwrap()).json(
+                json!( {
+                    "url" : success_redirect_url
+                }))
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);
@@ -170,22 +160,22 @@ pub async fn authenticate_google(
     }
 }
 
-pub fn generate_google_passport() -> PassPortBasicClient {
-    let mut passport = PassPortBasicClient::default();
-    let scope = env::var("GOOGLE_CLIENT_SCOPE").unwrap();
-    let scopes: Vec<&str> = scope.split(',').collect();
-    let mut backend_url = env::var("BACKEND_URL").unwrap();
-    backend_url.push_str("/redirect/google");
+// pub fn generate_google_passport() -> PassPortBasicClient {
+//     let mut passport = PassPortBasicClient::default();
+//     let scope = env::var("GOOGLE_CLIENT_SCOPE").unwrap();
+//     let scopes: Vec<&str> = scope.split(',').collect();
+//     let mut backend_url = env::var("BACKEND_URL").unwrap();
+//     backend_url.push_str("/redirect/google");
 
-    passport.using(
-        "google",
-        GoogleStrategy::new(
-            env::var("GOOGLE_CLIENT_ID").unwrap().as_str(),
-            env::var("GOOGLE_CLIENT_SECRET").unwrap().as_str(),
-            scopes,
-            backend_url.as_str(),
-            env::var("FAILURE_REDIRECT_URI").unwrap().as_str(),
-        ),
-    );
-    passport
-}
+//     passport.using(
+//         "google",
+//         GoogleStrategy::new(
+//             env::var("GOOGLE_CLIENT_ID").unwrap().as_str(),
+//             env::var("GOOGLE_CLIENT_SECRET").unwrap().as_str(),
+//             scopes,
+//             backend_url.as_str(),
+//             env::var("FAILURE_REDIRECT_URI").unwrap().as_str(),
+//         ),
+//     );
+//     passport
+// }
