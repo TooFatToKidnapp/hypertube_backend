@@ -1,10 +1,7 @@
 use actix_web::cookie::SameSite;
 use actix_web::web::Query;
 use actix_web::HttpResponse;
-use actix_web::{
-    http,
-    web::Data,
-};
+use actix_web::{http, web::Data};
 use passport_strategies::passport::{Choice, Passport, StateCode};
 use serde_json::json;
 use sqlx::PgPool;
@@ -12,6 +9,8 @@ use tokio::sync::RwLock;
 
 use crate::middleware::User;
 use crate::routes::create_session;
+use sqlx::types::chrono::Utc;
+use tracing::Instrument;
 
 // pub async fn google(passport: Data<RwLock<Passport>>) -> HttpResponse {
 //     tracing::info!("Google Oauth2 called");
@@ -146,8 +145,9 @@ pub async fn authenticate_google(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().cookie(session_result.unwrap()).json(
-                json!( {
+            HttpResponse::Ok()
+                .cookie(session_result.unwrap())
+                .json(json!( {
                     "url" : success_redirect_url
                 }))
         }

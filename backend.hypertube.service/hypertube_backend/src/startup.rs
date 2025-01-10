@@ -1,4 +1,4 @@
-use crate::passport::{generate_passports, passport_route_auth, passport_route_redirect};
+use crate::passport::{generate_passports, passport_route_redirect};
 use crate::routes::hello_world::handler;
 use crate::routes::movies::movie_source;
 use crate::routes::password_rest::password_source;
@@ -33,13 +33,11 @@ fn configure_cors(frontend_url: &str) -> Cors {
         .max_age(3600)
 }
 
-pub fn run_server(
-    listener: TcpListener,
-    db_pool: PgPool,
-) -> Result<Server, Box<dyn std::error::Error>> {
+pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Error> {
     dotenv().ok();
     let db_pool = Data::new(db_pool);
-    let passport_state = Data::new(RwLock::new(generate_passports()?));
+    let passport_state =
+        Data::new(RwLock::new(generate_passports()?));
     let cron_task_handler = Data::new(CronJobScheduler::new());
     let frontend_url = env::var("FRONTEND_URL").expect("FRONTEND_URL must be set");
 
@@ -50,7 +48,7 @@ pub fn run_server(
             .wrap(TracingLogger::default())
             .app_data(cron_task_handler.clone())
             .app_data(passport_state.clone())
-            .service(passport_route_auth())
+            // .service(passport_route_auth())
             .service(passport_route_redirect())
             .service(comment_source(&db_pool))
             .service(user_source(&db_pool))

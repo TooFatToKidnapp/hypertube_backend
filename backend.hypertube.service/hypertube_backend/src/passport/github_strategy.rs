@@ -1,18 +1,16 @@
 use actix_web::cookie::SameSite;
 use actix_web::web::Query;
 use actix_web::HttpResponse;
-use actix_web::{
-    http,
-    web::Data,
-};
+use actix_web::{http, web::Data};
 use passport_strategies::passport::{Choice, Passport, StateCode};
 use sqlx::PgPool;
 use tokio::sync::RwLock;
 
 use crate::middleware::User;
 use crate::routes::create_session;
-
 use serde_json::json;
+use sqlx::types::chrono::Utc;
+use tracing::Instrument;
 
 // pub async fn github(passport: Data<AppState>) -> HttpResponse {
 //     let mut auth = passport.github_passport.write().await;
@@ -31,18 +29,19 @@ pub async fn authenticate_github(
     let query_span = tracing::info_span!("Github Passport Event");
 
     let mut auth = passport.write().await;
-    let (profile, access_token,  success_redirect_url) = match auth.authenticate(Choice::Github, statecode).await {
-        (Some(response), url) => {
-            tracing::info!("Got Github Profile");
-            (response.profile, response.access_token.0 , url)
-        }
-        (None, url) => {
-            tracing::info!("didn't get user Github profile. user redirected");
-            return HttpResponse::SeeOther()
-                .append_header((http::header::LOCATION, url))
-                .finish();
-        }
-    };
+    let (profile, access_token, success_redirect_url) =
+        match auth.authenticate(Choice::Github, statecode).await {
+            (Some(response), url) => {
+                tracing::info!("Got Github Profile");
+                (response.profile, response.access_token.0, url)
+            }
+            (None, url) => {
+                tracing::info!("didn't get user Github profile. user redirected");
+                return HttpResponse::SeeOther()
+                    .append_header((http::header::LOCATION, url))
+                    .finish();
+            }
+        };
 
     // if profile["access_token"].as_str().is_none() {
     //     tracing::error!("Didn't find access token in the response");
@@ -199,9 +198,11 @@ pub async fn authenticate_github(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().cookie(session_result.unwrap()).json(json!({
-                "url" : success_redirect_url
-            }))
+            HttpResponse::Ok()
+                .cookie(session_result.unwrap())
+                .json(json!({
+                    "url" : success_redirect_url
+                }))
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);

@@ -1,20 +1,16 @@
 use actix_web::web::Query;
 use actix_web::HttpResponse;
-use actix_web::{
-    cookie::SameSite,
-    http,
-    web::Data,
-};
+use actix_web::{cookie::SameSite, http, web::Data};
 use passport_strategies::passport::{Choice, Passport, StateCode};
 
+use sqlx::types::chrono::Utc;
 use sqlx::PgPool;
 use tokio::sync::RwLock;
 
-
 use crate::middleware::User;
 use crate::routes::create_session;
-
 use serde_json::json;
+use tracing::Instrument;
 
 // #[derive(Debug, Clone)]
 // pub struct FortyTwoStrategy {
@@ -112,7 +108,8 @@ pub async fn authenticate_forty_two(
     let query_span = tracing::info_span!("42 Passport Event");
 
     let mut auth = passport.write().await;
-    let (profile, success_redirect_url) = match auth.authenticate(Choice::FortyTwo, statecode).await {
+    let (profile, success_redirect_url) = match auth.authenticate(Choice::FortyTwo, statecode).await
+    {
         (Some(response), url) => {
             tracing::info!("Got 42 Profile");
             (response.profile, url)
@@ -244,9 +241,11 @@ pub async fn authenticate_forty_two(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().cookie(session_result.unwrap()).json(json!({
-                "url" : success_redirect_url
-            }))
+            HttpResponse::Ok()
+                .cookie(session_result.unwrap())
+                .json(json!({
+                    "url" : success_redirect_url
+                }))
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);

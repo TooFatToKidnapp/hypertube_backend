@@ -5,12 +5,9 @@ use passport_strategies::{
     strategies::DiscordStrategy,
 };
 use std::env;
-use std::sync::Arc;
-use tokio::sync::RwLock;
 
 use super::{
     authenticate_discord, authenticate_forty_two, authenticate_github, authenticate_google,
-    discord, forty_tow, github, google,
 };
 
 pub fn passport_route_redirect() -> Scope {
@@ -21,13 +18,13 @@ pub fn passport_route_redirect() -> Scope {
         .route("/discord", web::get().to(authenticate_discord))
 }
 
-pub fn passport_route_auth() -> Scope {
-    web::scope("/auth")
-        .route("/google", web::get().to(google))
-        .route("/42", web::get().to(forty_tow))
-        .route("/github", web::get().to(github))
-        .route("/discord", web::get().to(discord))
-}
+// pub fn passport_route_auth() -> Scope {
+//     web::scope("/auth")
+//         .route("/google", web::get().to(google))
+//         .route("/42", web::get().to(forty_tow))
+//         .route("/github", web::get().to(github))
+//         .route("/discord", web::get().to(discord))
+// }
 
 // #[derive(Clone)]
 // pub struct AppState {
@@ -37,9 +34,11 @@ pub fn passport_route_auth() -> Scope {
 //     pub discord_passport: Arc<RwLock<PassPortBasicClient>>,
 // }
 
-pub fn generate_passports() -> Result<Passport, Box<dyn std::error::Error>> {
+pub fn generate_passports() -> Result<Passport, std::io::Error> {
     let passport = Passport::default()
-        .redirect_urls(Redirect::new("", "")?)
+        .redirect_urls(Redirect::new("https://youtube.com", "http://127.0.0.1:8000/").map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+        })?)
         .strategize(
             Choice::Discord,
             DiscordStrategy::new(
@@ -48,7 +47,9 @@ pub fn generate_passports() -> Result<Passport, Box<dyn std::error::Error>> {
                 &["email", "identify"],
                 "http://127.0.0.1:8000/redirect/discrod",
             ),
-        )?
+        ).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+        })?
         .strategize(
             Choice::FortyTwo,
             DiscordStrategy::new(
@@ -57,7 +58,9 @@ pub fn generate_passports() -> Result<Passport, Box<dyn std::error::Error>> {
                 &[],
                 "http://127.0.0.1:8000/redirect/42",
             ),
-        )?
+        ).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+        })?
         .strategize(
             Choice::Google,
             DiscordStrategy::new(
@@ -69,7 +72,9 @@ pub fn generate_passports() -> Result<Passport, Box<dyn std::error::Error>> {
                 ],
                 "http://127.0.0.1:8000/redirect/google",
             ),
-        )?
+        ).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+        })?
         .strategize(
             Choice::Github,
             DiscordStrategy::new(
@@ -78,7 +83,9 @@ pub fn generate_passports() -> Result<Passport, Box<dyn std::error::Error>> {
                 &["user:email"],
                 "http://127.0.0.1:8000/redirect/github",
             ),
-        )?;
+        ).map_err(|e| {
+            std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
+        })?;
 
     Ok(passport)
 }

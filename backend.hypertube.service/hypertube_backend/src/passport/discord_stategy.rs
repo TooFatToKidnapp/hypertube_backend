@@ -1,33 +1,28 @@
 use actix_web::cookie::SameSite;
 use actix_web::web::Query;
 use actix_web::HttpResponse;
-use actix_web::{
-    http,
-    web::{self, Data},
-};
-use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, StateCode};
-use passport_strategies::passport::{Choice, Passport};
-use passport_strategies::strategies::DiscordStrategy;
+use actix_web::{http, web::Data};
+// use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, StateCode};
+use passport_strategies::passport::{Choice, Passport, StateCode};
 use sqlx::PgPool;
 use tokio::sync::RwLock;
-use std::env;
 
 use crate::middleware::User;
 use crate::routes::create_session;
 
-use super::AppState;
+// use super::AppState;
 use chrono::Utc;
 use serde_json::json;
 use tracing::Instrument;
 
-pub async fn discord(passport: Data<AppState>) -> HttpResponse {
-    let mut auth = passport.discord_passport.write().await;
-    auth.authenticate("discord");
-    let url = auth.generate_redirect_url();
-    HttpResponse::Ok().json(json!({
-        "redirect_url" : url
-    }))
-}
+// pub async fn discord(passport: Data<AppState>) -> HttpResponse {
+//     let mut auth = passport.discord_passport.write().await;
+//     auth.authenticate("discord");
+//     let url = auth.generate_redirect_url();
+//     HttpResponse::Ok().json(json!({
+//         "redirect_url" : url
+//     }))
+// }
 
 // add user exist
 
@@ -35,6 +30,7 @@ async fn create_user(
     connection: &PgPool,
     profile: &serde_json::Value,
     query_span: tracing::span::Span,
+    redirect_url: &str,
 ) -> HttpResponse {
     let user_name = &profile["username"];
     // let image_url = &profile["avatar"];
@@ -84,7 +80,8 @@ async fn create_user(
             match session {
                 Ok(cookie) => {
                     return HttpResponse::Ok()
-                        .cookie(cookie);
+                        .cookie(cookie)
+                        .json(json!({"url": redirect_url}));
                 }
                 Err(_) => HttpResponse::InternalServerError().json(json!({
                     "error":"failed to generate session for user",
@@ -112,7 +109,8 @@ pub async fn authenticate_discord(
 
     let mut auth = passport.write().await;
 
-    let (profile, success_redirect_url) = match auth.authenticate(Choice::Discord, statecode).await {
+    let (profile, success_redirect_url) = match auth.authenticate(Choice::Discord, statecode).await
+    {
         (Some(response), url) => {
             tracing::info!("Got Discord Profile");
             (response.profile, url)
@@ -167,7 +165,7 @@ pub async fn authenticate_discord(
                 Ok(cookie) => {
                     return HttpResponse::Ok()
                         .cookie(cookie)
-                        .json(json!({"url": success_redirect_url}));
+                        .json(json!({"url": success_redirect_url}))
                 }
                 Err(_) => HttpResponse::InternalServerError().json(json!({
                     "Error":"failed to generate user session",
@@ -175,7 +173,13 @@ pub async fn authenticate_discord(
             }
         }
         Err(sqlx::Error::RowNotFound) => {
-            create_user(connection.get_ref(), &profile, query_span.clone()).await
+            create_user(
+                connection.get_ref(),
+                &profile,
+                query_span.clone(),
+                &success_redirect_url,
+            )
+            .await
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);
