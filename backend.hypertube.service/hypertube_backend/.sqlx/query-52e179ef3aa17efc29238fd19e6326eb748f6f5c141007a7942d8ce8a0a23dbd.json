@@ -1,0 +1,197 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "\n            INSERT INTO imdb_movie_details (\n                id, primary_title, original_title, source_type, genres, is_adult, start_year, end_year,\n                runtime_minutes, average_rating, num_votes, description, primary_image, content_rating,\n                release_date, interests, countries_of_origin, external_links, spoken_languages,\n                filming_locations, budget, gross_world_wide, directors, writers, \"cast\", torrents\n            ) VALUES (\n                $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26\n            )\n            Returning *\n            ",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "primary_title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 2,
+        "name": "original_title",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 3,
+        "name": "source_type",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 4,
+        "name": "genres",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 5,
+        "name": "is_adult",
+        "type_info": "Bool"
+      },
+      {
+        "ordinal": 6,
+        "name": "start_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 7,
+        "name": "end_year",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 8,
+        "name": "runtime_minutes",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 9,
+        "name": "average_rating",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 10,
+        "name": "num_votes",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 11,
+        "name": "description",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 12,
+        "name": "primary_image",
+        "type_info": "Text"
+      },
+      {
+        "ordinal": 13,
+        "name": "content_rating",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 14,
+        "name": "release_date",
+        "type_info": "Date"
+      },
+      {
+        "ordinal": 15,
+        "name": "interests",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 16,
+        "name": "countries_of_origin",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 17,
+        "name": "external_links",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 18,
+        "name": "spoken_languages",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 19,
+        "name": "filming_locations",
+        "type_info": "TextArray"
+      },
+      {
+        "ordinal": 20,
+        "name": "directors",
+        "type_info": "JsonArray"
+      },
+      {
+        "ordinal": 21,
+        "name": "writers",
+        "type_info": "JsonArray"
+      },
+      {
+        "ordinal": 22,
+        "name": "cast",
+        "type_info": "JsonArray"
+      },
+      {
+        "ordinal": 23,
+        "name": "budget",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 24,
+        "name": "gross_world_wide",
+        "type_info": "Int4"
+      },
+      {
+        "ordinal": 25,
+        "name": "torrents",
+        "type_info": "JsonArray"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Varchar",
+        "Text",
+        "Text",
+        "Varchar",
+        "TextArray",
+        "Bool",
+        "Int4",
+        "Int4",
+        "Int4",
+        "Varchar",
+        "Int4",
+        "Text",
+        "Text",
+        "Varchar",
+        "Date",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "TextArray",
+        "Int4",
+        "Int4",
+        "JsonArray",
+        "JsonArray",
+        "JsonArray",
+        "JsonArray"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true,
+      true
+    ]
+  },
+  "hash": "52e179ef3aa17efc29238fd19e6326eb748f6f5c141007a7942d8ce8a0a23dbd"
+}

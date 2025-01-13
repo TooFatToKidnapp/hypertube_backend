@@ -1,0 +1,50 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT movie_id, movie_imdb_code, movie_source, created_at FROM favorite_movies WHERE user_id = $1",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "movie_id",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 1,
+        "name": "movie_imdb_code",
+        "type_info": "Varchar"
+      },
+      {
+        "ordinal": 2,
+        "name": "movie_source",
+        "type_info": {
+          "Custom": {
+            "name": "movie_source_type",
+            "kind": {
+              "Enum": [
+                "YTS",
+                "MOVIEDB"
+              ]
+            }
+          }
+        }
+      },
+      {
+        "ordinal": 3,
+        "name": "created_at",
+        "type_info": "Timestamptz"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Uuid"
+      ]
+    },
+    "nullable": [
+      false,
+      true,
+      false,
+      false
+    ]
+  },
+  "hash": "57003217bac639929e94d07d8f9a263f08b97f7e4cbd5a751ab8c9761b825e97"
+}

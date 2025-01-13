@@ -243,7 +243,17 @@ where
                 }
             };
 
+            tracing::info!("INSERTING USER: {:#?}", user);
             req.extensions_mut().insert::<Rc<User>>(Rc::new(user));
+
+            if let Some(user) = req.extensions().get::<Rc<User>>() {
+                tracing::debug!("User found M: {:?}", user);
+                // HttpResponse::Ok().body(format!("Hello, {}!", user.username))
+            } else {
+                tracing::debug!("User not found in request extensions M");
+                // HttpResponse::Unauthorized().body("User not found")
+            }
+
             let fut = service.call(req);
             let res: ServiceResponse<B> = fut.await?;
             Ok(res.map_into_left_body())

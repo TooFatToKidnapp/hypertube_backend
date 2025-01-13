@@ -1,5 +1,5 @@
 use super::{
-    delete_torrent, get_favorite_movies, get_movie_info, get_movie_subtitles, get_movies_search, get_yts_top_movies, get_yts_top_movies_in_genre, stream_video_content
+    delete_torrent, get_favorite_movies, get_movie_info, get_movie_subtitles, get_movies_search, get_watched_movies, get_yts_top_movies, get_yts_top_movies_in_genre, remove_favorite_movie, set_favorite_movie, set_watched_movie, stream_video_content
 };
 use crate::middleware::Authentication;
 use crate::routes::download_torrent;
@@ -201,7 +201,27 @@ pub fn movie_source(db_pool: &PgPool) -> Scope {
         .route("/favorite",
             web::get()
             .to(get_favorite_movies)
-            .wrap(Authentication),
+            .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route("/favorite",
+            web::post()
+            .to(set_favorite_movie)
+            .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route("/favorite",
+            web::delete()
+            .to(remove_favorite_movie)
+            .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route("/history",
+        web::get()
+            .to(get_watched_movies)
+            .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route("/history",
+        web::post()
+            .to(set_watched_movie)
+            .wrap(Authentication::new(db_pool.clone())),
         )
 }
 
