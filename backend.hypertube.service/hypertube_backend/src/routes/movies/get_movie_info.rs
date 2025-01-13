@@ -1,4 +1,4 @@
-use actix_web::{http, web::{Data, Path}, HttpResponse};
+use actix_web::{http, web::{Data, Path}, HttpRequest, HttpResponse};
 use bigdecimal::BigDecimal;
 use serde_json::json;
 use sqlx::PgPool;
@@ -12,6 +12,7 @@ use super::{map_movie_bd_genre_code_with_value, Source};
 pub async fn get_movie_info(
     path: Path<(String, Source)>,
     connection: Data<PgPool>,
+    req: HttpRequest,
     // query_span: Span,
 ) -> HttpResponse {
     let (movie_id, source_provider) = path.into_inner();

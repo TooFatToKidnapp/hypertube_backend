@@ -1,6 +1,5 @@
 use super::{
-    delete_torrent, get_movie_info, get_movie_subtitles, get_movies_search, get_yts_top_movies,
-    get_yts_top_movies_in_genre, stream_video_content,
+    delete_torrent, get_favorite_movies, get_movie_info, get_movie_subtitles, get_movies_search, get_yts_top_movies, get_yts_top_movies_in_genre, stream_video_content
 };
 use crate::middleware::Authentication;
 use crate::routes::download_torrent;
@@ -198,6 +197,11 @@ pub fn movie_source(db_pool: &PgPool) -> Scope {
             web::post()
                 .to(get_movie_subtitles)
                 .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route("/favorite",
+            web::get()
+            .to(get_favorite_movies)
+            .wrap(Authentication),
         )
 }
 

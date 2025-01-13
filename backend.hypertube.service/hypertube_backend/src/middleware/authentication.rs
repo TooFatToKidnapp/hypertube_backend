@@ -149,6 +149,7 @@ where
 
             let session = match session_query_res {
                 Ok(session) => {
+                    tracing::info!("USER ID: {}", session.user_id);
                     tracing::info!("Found session");
                     session
                 }
