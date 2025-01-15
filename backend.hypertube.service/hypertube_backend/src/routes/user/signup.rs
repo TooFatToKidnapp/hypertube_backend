@@ -186,7 +186,7 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
     let cookie = Cookie::build("session", session_id)
         .secure(true)
         .http_only(true)
-        .same_site(SameSite::Strict)
+        .same_site(SameSite::None)
         .path("/")
         .expires(Expiration::DateTime(
             OffsetDateTime::now_utc() + Duration::days(7),

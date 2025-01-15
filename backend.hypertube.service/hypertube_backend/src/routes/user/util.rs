@@ -55,7 +55,8 @@ pub fn user_source(db_pool: &PgPool) -> Scope {
                 .wrap(Authentication::new(db_pool.clone())),
         )
         .route(
-            "/{id}",
+            "/get_info",
+            // "/{id}",
             get()
                 .to(get_user)
                 .wrap(Authentication::new(db_pool.clone())),

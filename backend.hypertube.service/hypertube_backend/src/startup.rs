@@ -30,6 +30,7 @@ fn configure_cors(frontend_url: &str) -> Cors {
         .allowed_headers(vec![header::AUTHORIZATION, header::ACCEPT])
         .allowed_header(header::CONTENT_TYPE)
         .max_age(3600)
+        .supports_credentials()
 }
 
 pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Error> {
