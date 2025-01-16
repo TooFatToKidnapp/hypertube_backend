@@ -8,8 +8,10 @@ use crate::middleware::User;
 #[derive(Serialize)]
 pub struct WatchedMovie {
     movie_id: String,
+    title : String,
     movie_imdb_code: Option<String>,
     movie_source: String,
+    poster_src: String,
     created_at: String,
 }
 
@@ -34,15 +36,22 @@ pub async fn get_watched_movies(
     };
 
     let query = sqlx::query!(
-        "SELECT movie_id, movie_imdb_code, movie_source, created_at FROM watched_movies WHERE user_id = $1",
+        "SELECT movie_id, movie_imdb_code, title, poster_src, movie_source, created_at FROM watched_movies WHERE user_id = $1",
         visitor_id
     );
+
+    // let query = sqlx::query!(
+    //     "SELECT movie_id, movie_imdb_code, movie_source, created_at FROM watched_movies WHERE user_id = $1",
+    //     visitor_id
+    // );
 
     match query.fetch_all(&**connection).await {
         Ok(rows) => {
             let watched_movies: Vec<WatchedMovie> = rows.into_iter().map(|row| WatchedMovie {
                 movie_id: row.movie_id,
                 movie_imdb_code: row.movie_imdb_code,
+                title: row.title,
+                poster_src: row.poster_src,
                 movie_source: row.movie_source,
                 created_at: row.created_at.to_string(),
             }).collect();

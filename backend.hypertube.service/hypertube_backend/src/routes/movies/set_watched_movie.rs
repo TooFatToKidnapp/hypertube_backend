@@ -10,8 +10,10 @@ use crate::middleware::User;
 #[derive(Deserialize)]
 pub struct WatchedMovie {
     movie_id: String,
+    title : String,
     movie_imdb_code: Option<String>,
     movie_source: String,
+    poster_src: String,
 }
 
 pub async fn set_watched_movie(
@@ -38,8 +40,10 @@ pub async fn set_watched_movie(
     let created_at: DateTime<Utc> = Utc::now();
 
     let query = sqlx::query!(
-        "INSERT INTO watched_movies (user_id, movie_id, movie_imdb_code, movie_source, created_at) VALUES ($1, $2, $3, $4, $5)",
+        "INSERT INTO watched_movies (user_id, poster_src, title, movie_id, movie_imdb_code, movie_source, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
         visitor_id,
+        movie.poster_src,
+        movie.title,
         movie.movie_id,
         movie.movie_imdb_code,
         movie.movie_source,
