@@ -1,1 +1,0 @@
-fn(actix_web::web::Data<{type error}>, {type error}, actix_web::web::Data<Pool<Postgres>>) -> impl futures_util::Future<Output = actix_web::HttpResponse> {forty_two_strategy::authenticate_forty_two}

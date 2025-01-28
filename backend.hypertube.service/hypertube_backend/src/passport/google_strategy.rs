@@ -12,15 +12,18 @@ use crate::routes::create_session;
 use sqlx::types::chrono::Utc;
 use tracing::Instrument;
 
-// pub async fn google(passport: Data<RwLock<Passport>>) -> HttpResponse {
-//     tracing::info!("Google Oauth2 called");
-//     let mut auth = passport.write().await;
-//     auth.authenticate("google");
-//     let url = auth.generate_redirect_url();
-//     HttpResponse::Ok().json(json!({
-//         "redirect_url" : url
-//     }))
-// }
+
+pub async fn google(passport: Data<RwLock<Passport>>) -> HttpResponse {
+    tracing::info!("CALLING GOOGLE OAUTH");
+    let mut auth = passport.write().await;
+
+    let url = auth.redirect_url(Choice::Google);
+
+    tracing::info!("{:#?}", url);
+    HttpResponse::SeeOther()
+        .append_header((http::header::LOCATION, url))
+        .finish()
+}
 
 pub async fn authenticate_google(
     passport: Data<RwLock<Passport>>,

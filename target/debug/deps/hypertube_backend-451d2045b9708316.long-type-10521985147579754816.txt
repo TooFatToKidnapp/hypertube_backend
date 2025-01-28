@@ -1,1 +1,0 @@
-fn(actix_web::web::Data<passport::util::AppState>, actix_web::web::Query<{type error}>, actix_web::web::Data<Pool<Postgres>>) -> impl futures_util::Future<Output = actix_web::HttpResponse> {discord_stategy::authenticate_discord}

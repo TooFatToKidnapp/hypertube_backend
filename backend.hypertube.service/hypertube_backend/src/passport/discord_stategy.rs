@@ -26,6 +26,8 @@ use tracing::Instrument;
 
 // add user exist
 
+
+
 async fn create_user(
     connection: &PgPool,
     profile: &serde_json::Value,
@@ -92,6 +94,16 @@ async fn create_user(
             "error":"failed to create user",
         })),
     }
+}
+
+pub async fn discord(passport: Data<RwLock<Passport>>) -> HttpResponse {
+    let mut auth = passport.write().await;
+
+    let url = auth.redirect_url(Choice::Discord);
+
+    HttpResponse::SeeOther()
+        .append_header((http::header::LOCATION, url))
+        .finish()
 }
 
 pub async fn authenticate_discord(

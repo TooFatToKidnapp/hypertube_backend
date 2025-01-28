@@ -21,6 +21,16 @@ use tracing::Instrument;
 //     }))
 // }
 
+pub async fn github(passport: Data<RwLock<Passport>>) -> HttpResponse {
+    let mut auth = passport.write().await;
+
+    let url = auth.redirect_url(Choice::Github);
+
+    HttpResponse::SeeOther()
+        .append_header((http::header::LOCATION, url))
+        .finish()
+}
+
 pub async fn authenticate_github(
     passport: Data<RwLock<Passport>>,
     Query(statecode): Query<StateCode>,

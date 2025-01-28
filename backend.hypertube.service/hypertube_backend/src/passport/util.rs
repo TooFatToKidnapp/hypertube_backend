@@ -2,12 +2,12 @@ use actix_web::{web, Scope};
 // use passport_strategies::basic_client::PassPortBasicClient;
 use passport_strategies::{
     passport::{Choice, Passport, Redirect},
-    strategies::DiscordStrategy,
+    strategies::{DiscordStrategy, FortyTwoStrategy, GithubStrategy, GoogleStrategy},
 };
 use std::env;
 
 use super::{
-    authenticate_discord, authenticate_forty_two, authenticate_github, authenticate_google,
+    authenticate_discord, authenticate_forty_two, authenticate_github, authenticate_google, google, forty_two, github, discord
 };
 
 pub fn passport_route_redirect() -> Scope {
@@ -16,6 +16,14 @@ pub fn passport_route_redirect() -> Scope {
         .route("/42", web::get().to(authenticate_forty_two))
         .route("/github", web::get().to(authenticate_github))
         .route("/discord", web::get().to(authenticate_discord))
+}
+
+pub fn passport_oauth() -> Scope {
+    web::scope("/oauth")
+        .route("/google", web::get().to(google))
+        .route("/42", web::get().to(forty_two))
+        .route("/github", web::get().to(github))
+        .route("/discord", web::get().to(discord))
 }
 
 // pub fn passport_route_auth() -> Scope {
@@ -52,7 +60,7 @@ pub fn generate_passports() -> Result<Passport, std::io::Error> {
         })?
         .strategize(
             Choice::FortyTwo,
-            DiscordStrategy::new(
+            FortyTwoStrategy::new(
                 env::var("CLIENT_UID_42").unwrap().as_str(),
                 env::var("CLIENT_SECRET_42").unwrap().as_str(),
                 &[],
@@ -63,7 +71,7 @@ pub fn generate_passports() -> Result<Passport, std::io::Error> {
         })?
         .strategize(
             Choice::Google,
-            DiscordStrategy::new(
+            GoogleStrategy::new(
                 env::var("GOOGLE_CLIENT_ID").unwrap().as_str(),
                 env::var("GOOGLE_CLIENT_SECRET").unwrap().as_str(),
                 &[
@@ -77,7 +85,7 @@ pub fn generate_passports() -> Result<Passport, std::io::Error> {
         })?
         .strategize(
             Choice::Github,
-            DiscordStrategy::new(
+            GithubStrategy::new(
                 env::var("CLIENT_ID_GITHUB").unwrap().as_str(),
                 env::var("CLIENT_SECRET_GITHUB").unwrap().as_str(),
                 &["user:email"],
