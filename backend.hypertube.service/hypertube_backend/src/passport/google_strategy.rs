@@ -6,11 +6,13 @@ use passport_strategies::passport::{Choice, Passport, StateCode};
 use serde_json::json;
 use sqlx::PgPool;
 use tokio::sync::RwLock;
+use serde_json::Value;
 
 use crate::middleware::User;
 use crate::routes::create_session;
 use sqlx::types::chrono::Utc;
 use tracing::Instrument;
+
 
 
 pub async fn google(passport: Data<RwLock<Passport>>) -> HttpResponse {
@@ -101,24 +103,36 @@ pub async fn authenticate_google(
         }
         Err(sqlx::Error::RowNotFound) => {
             tracing::info!("Google Sign up event. user email was not found in the database");
-            let id = uuid::Uuid::new_v4();
-            let user_name = &profile["names"][0]["givenName"];
-            if user_name.as_str().is_none() {
-                tracing::error!("Error: user name not found in response");
-                return HttpResponse::BadRequest().json(json!({
-                    "error": "Missing name from google payload"
-                }));
-            }
-            let user_name = user_name.as_str().unwrap();
+            // let id = uuid::Uuid::new_v4();
+            let user_result = profile_to_user(&profile);
+            let user = match user_result {
+                Ok(user) => user,
+                Err(err) => {
+                    tracing::error!("Error: user name not found in response");
+                    return HttpResponse::BadRequest().json(json!({
+                        "error": "Missing name from google payload"
+                    }));
+                }
+            };
+            // let user_name = &profile["names"][0]["displayName"];
+            // if user_name.as_str().is_none() {
+            //     tracing::error!("Error: user name not found in response");
+            //     return HttpResponse::BadRequest().json(json!({
+            //         "error": "Missing name from google payload"
+            //     }));
+            // }
+            // let user_name = user_name.as_str().unwrap();
             let query_res = sqlx::query!(
                 r#"
-                    INSERT INTO users (id, username, email, created_at, updated_at)
-                    VALUES ($1, $2, $3, $4, $5)
+                    INSERT INTO users (id, first_name, last_name, username, email, created_at, updated_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
                     RETURNING *
                 "#,
-                id,
-                user_name,
-                user_email,
+                user.id,
+                user.first_name,
+                user.last_name,
+                user.username,
+                user.email,
                 Utc::now(),
                 Utc::now(),
             )
@@ -195,3 +209,43 @@ pub async fn authenticate_google(
 //     );
 //     passport
 // }
+fn profile_to_user(profile: &Value) -> Result<User, String> {
+    let id = uuid::Uuid::new_v4();
+
+    let first_name = profile["names"][0]["givenName"]
+        .as_str()
+        .map(|s| s.to_string());
+
+    let last_name = profile["names"][0]["familyName"]
+        .as_str()
+        .map(|s| s.to_string());
+
+    let image_url = profile["photos"][0]["url"]
+        .as_str()
+        .map(|s| s.to_string());
+
+    let username = profile["names"][0]["displayName"]
+        .as_str()
+        .ok_or("Missing displayName")?
+        .to_string();
+
+    let email = profile["emailAddresses"][0]["value"]
+        .as_str()
+        .ok_or("Missing email value")?
+        .to_string();
+
+    let created_at = Utc::now().to_string();
+    let updated_at = Utc::now().to_string();
+
+    Ok(User {
+        id,
+        first_name,
+        last_name,
+        image_url,
+        username,
+        email,
+        created_at,
+        updated_at,
+        session_id: None,
+    })
+}
