@@ -29,7 +29,7 @@ async fn main() -> std::io::Result<()> {
                 .to_string(),
         )
     })?;
-    
+
     // let m = Migrator::new(Path::new("../migrations")).await?;
     let connection_pool = PgPool::connect(configuration.database.connection_string().as_str())
         .await

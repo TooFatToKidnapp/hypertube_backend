@@ -1,69 +1,65 @@
 use actix_web::cookie::SameSite;
+use actix_web::web::Query;
 use actix_web::HttpResponse;
-use actix_web::{
-    http,
-    web::{self, Data},
-};
-use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, StateCode};
-use passport_strategies::strategies::GithubStrategy;
+use actix_web::{http, web::Data};
+use passport_strategies::passport::{Choice, Passport, StateCode};
 use sqlx::PgPool;
-use std::env;
+use tokio::sync::RwLock;
 
 use crate::middleware::User;
 use crate::routes::create_session;
-
-use super::AppState;
-use chrono::Utc;
 use serde_json::json;
+use sqlx::types::chrono::Utc;
 use tracing::Instrument;
 
-pub async fn github(passport: Data<AppState>) -> HttpResponse {
-    let mut auth = passport.github_passport.write().await;
-    auth.authenticate("github");
-    let url = auth.generate_redirect_url();
-    HttpResponse::Ok().json(json!({
-        "redirect_url" : url
-    }))
+// pub async fn github(passport: Data<AppState>) -> HttpResponse {
+//     let mut auth = passport.github_passport.write().await;
+//     auth.authenticate("github");
+//     let url = auth.generate_redirect_url();
+//     HttpResponse::Ok().json(json!({
+//         "redirect_url" : url
+//     }))
+// }
+
+pub async fn github(passport: Data<RwLock<Passport>>) -> HttpResponse {
+    let mut auth = passport.write().await;
+
+    let url = auth.redirect_url(Choice::Github);
+
+    HttpResponse::SeeOther()
+        .append_header((http::header::LOCATION, url))
+        .finish()
 }
 
 pub async fn authenticate_github(
-    auth: Data<AppState>,
-    authstate: web::Query<StateCode>,
+    passport: Data<RwLock<Passport>>,
+    Query(statecode): Query<StateCode>,
     connection: Data<PgPool>,
 ) -> HttpResponse {
     let query_span = tracing::info_span!("Github Passport Event");
 
-    let mut auth = auth.github_passport.write().await;
-    auth.authenticate("github");
-    let profile = match auth.get_profile(authstate.0).await {
-        Ok(response) => {
-            let res = match response {
-                PassportResponse::Profile(profile) => {
-                    tracing::info!("Got Github Profile");
-                    profile
-                }
-                PassportResponse::FailureRedirect(failure) => {
-                    tracing::info!("didn't get user Github profile. user redirected");
-                    return HttpResponse::SeeOther()
-                        .append_header((http::header::LOCATION, failure.to_string()))
-                        .finish();
-                }
-            };
-            res
-        }
-        Err(error) => {
-            tracing::error!("Error: Bad Github Profile response");
-            return HttpResponse::BadRequest().body(error.to_string());
-        }
-    };
+    let mut auth = passport.write().await;
+    let (profile, access_token, success_redirect_url) =
+        match auth.authenticate(Choice::Github, statecode).await {
+            (Some(response), url) => {
+                tracing::info!("Got Github Profile");
+                (response.profile, response.access_token.0, url)
+            }
+            (None, url) => {
+                tracing::info!("didn't get user Github profile. user redirected");
+                return HttpResponse::SeeOther()
+                    .append_header((http::header::LOCATION, url))
+                    .finish();
+            }
+        };
 
-    if profile["access_token"].as_str().is_none() {
-        tracing::error!("Didn't find access token in the response");
-        return HttpResponse::BadRequest().json(json!({
-            "error": "Missing access token in github response"
-        }));
-    }
-    let access_token = profile["access_token"].as_str().unwrap();
+    // if profile["access_token"].as_str().is_none() {
+    //     tracing::error!("Didn't find access token in the response");
+    //     return HttpResponse::BadRequest().json(json!({
+    //         "error": "Missing access token in github response"
+    //     }));
+    // }
+    // let access_token = profile["access_token"].as_str().unwrap();
 
     let client = reqwest::Client::new();
     let request = client
@@ -212,7 +208,11 @@ pub async fn authenticate_github(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().cookie(session_result.unwrap()).finish()
+            HttpResponse::Ok()
+                .cookie(session_result.unwrap())
+                .json(json!({
+                    "url" : success_redirect_url
+                }))
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);
@@ -223,21 +223,21 @@ pub async fn authenticate_github(
     }
 }
 
-pub fn generate_github_passport() -> PassPortBasicClient {
-    let mut passport = PassPortBasicClient::default();
-    let scope = env::var("CLIENT_SCOPE_GITHUB").unwrap();
-    let scopes: Vec<&str> = scope.split(',').collect();
-    let mut backend_url = env::var("BACKEND_URL").unwrap();
-    backend_url.push_str("/redirect/github");
-    passport.using(
-        "github",
-        GithubStrategy::new(
-            env::var("CLIENT_ID_GITHUB").unwrap().as_str(),
-            env::var("CLIENT_SECRET_GITHUB").unwrap().as_str(),
-            scopes,
-            backend_url.as_str(),
-            env::var("FAILURE_REDIRECT_URI").unwrap().as_str(),
-        ),
-    );
-    passport
-}
+// pub fn generate_github_passport() -> PassPortBasicClient {
+//     let mut passport = PassPortBasicClient::default();
+//     let scope = env::var("CLIENT_SCOPE_GITHUB").unwrap();
+//     let scopes: Vec<&str> = scope.split(',').collect();
+//     let mut backend_url = env::var("BACKEND_URL").unwrap();
+//     backend_url.push_str("/redirect/github");
+//     passport.using(
+//         "github",
+//         GithubStrategy::new(
+//             env::var("CLIENT_ID_GITHUB").unwrap().as_str(),
+//             env::var("CLIENT_SECRET_GITHUB").unwrap().as_str(),
+//             scopes,
+//             backend_url.as_str(),
+//             env::var("FAILURE_REDIRECT_URI").unwrap().as_str(),
+//         ),
+//     );
+//     passport
+// }

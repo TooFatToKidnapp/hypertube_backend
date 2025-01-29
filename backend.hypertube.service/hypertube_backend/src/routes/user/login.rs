@@ -103,7 +103,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
         username: user.username,
         session_id: None,
     };
-    let session_result = create_session(connection.as_ref(), user.clone(), SameSite::Strict).await;
+    let session_result = create_session(connection.as_ref(), user.clone(), SameSite::None).await;
     if session_result.is_err() {
         tracing::error!(
             "Failed to generate user session  {}",

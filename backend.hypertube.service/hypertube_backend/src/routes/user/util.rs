@@ -225,7 +225,9 @@ pub async fn create_session(
             return Err(Box::new(err));
         }
     };
+    tracing::info!("SETING COOKIES ");
     let cookie = Cookie::build("session", session_id)
+        // .domain("127.0.0.1")
         .secure(true)
         .http_only(true)
         .same_site(same_site)
