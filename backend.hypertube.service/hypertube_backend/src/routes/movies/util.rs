@@ -866,7 +866,7 @@ pub async fn movie_db_handler(
     };
 
     let mut client_response = json!({
-        "limit": movies_list.len(),
+        "limit": 0,
     //     "max_movie_count": res["total_results"].as_i64().unwrap_or(0),
     //     "max_page_count": res["total_pages"].as_i64().unwrap_or(0),
         "movies": []
@@ -921,7 +921,27 @@ pub async fn movie_db_handler(
         client_res_movie_arr.push(movie_content);
     }
 
+    let paginated_movies = paginate_movies(client_res_movie_arr, search_params.page, search_params.page_size);
+    client_response["movies"] = json!(paginated_movies);
+    client_response["limit"] = json!(paginated_movies.len());
+
     Ok(client_response)
+}
+
+fn paginate_movies(client_res_movie_arr: &mut Vec<Value>, page: u32, page_size: u8) -> Vec<Value> {
+    let page = page as usize;
+    let page_size = page_size as usize;
+    if page == 0 || page_size == 0 {
+        return vec![];
+    }
+
+    let start = (page - 1) * page_size;
+    if start >= client_res_movie_arr.len() {
+        return vec![];
+    }
+
+    let end = start + page_size;
+    client_res_movie_arr[start..end.min(client_res_movie_arr.len())].to_vec()
 }
 
 pub fn map_movie_bd_genre_code_with_value(codes: &[Value]) -> Vec<Option<&str>> {
