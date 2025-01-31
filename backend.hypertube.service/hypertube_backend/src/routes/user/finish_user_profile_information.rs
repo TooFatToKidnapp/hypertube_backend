@@ -238,7 +238,7 @@ pub async fn finish_profile_information(
         let new_username = body.username.as_ref().unwrap();
         let update_username_query = sqlx::query(
             r#"
-					UPDATE users SET username = $1, updated_at = $2, finished_profile = $3 WHERE id = $4
+					UPDATE users SET username = $1, updated_at = $2, profile_is_finished = $3 WHERE id = $4
 				"#,
         )
         .bind(new_username)
