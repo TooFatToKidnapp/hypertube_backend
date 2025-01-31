@@ -10,5 +10,6 @@ CREATE TABLE users(
 		password_hash VARCHAR(255),
 		created_at timestamptz NOT NULL,
 		updated_at timestamptz NOT NULL,
-		finished_profile BOOLEAN DEFAULT FALSE
+		profile_is_finished BOOLEAN NOT NULL DEFAULT FALSE,
+		password_is_set BOOLEAN NOT NULL DEFAULT FALSE
 );

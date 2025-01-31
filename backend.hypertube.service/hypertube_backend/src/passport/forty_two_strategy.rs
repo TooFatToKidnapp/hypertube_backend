@@ -180,6 +180,8 @@ pub async fn authenticate_forty_two(
                 updated_at: user.updated_at.to_string(),
                 username: user.username,
                 session_id: None,
+                profile_is_finished: user.profile_is_finished,
+                password_is_set: user.password_is_set,
             };
             let session_result =
                 create_session(connection.as_ref(), user.clone(), SameSite::None).await;
@@ -244,6 +246,8 @@ pub async fn authenticate_forty_two(
                 updated_at: user_res.updated_at.to_string(),
                 username: user_res.username,
                 session_id: None,
+                profile_is_finished: user_res.profile_is_finished,
+                password_is_set: user_res.password_is_set,
             };
             let session_result =
                 create_session(connection.as_ref(), user.clone(), SameSite::None).await;

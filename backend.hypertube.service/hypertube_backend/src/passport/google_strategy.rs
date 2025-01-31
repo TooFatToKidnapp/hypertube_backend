@@ -81,6 +81,8 @@ pub async fn authenticate_google(
                 updated_at: user.updated_at.to_string(),
                 username: user.username,
                 session_id: None,
+                profile_is_finished: user.profile_is_finished,
+                password_is_set: user.password_is_set,
             };
             let session_result =
                 create_session(connection.as_ref(), user.clone(), SameSite::None).await;
@@ -157,6 +159,8 @@ pub async fn authenticate_google(
                 updated_at: user_rec.updated_at.to_string(),
                 username: user_rec.username,
                 session_id: None,
+                profile_is_finished: user.profile_is_finished,
+                password_is_set: user.password_is_set,
             };
             let session_result =
                 create_session(connection.as_ref(), user.clone(), SameSite::Strict).await;
@@ -247,5 +251,7 @@ fn profile_to_user(profile: &Value) -> Result<User, String> {
         created_at,
         updated_at,
         session_id: None,
+        profile_is_finished: false,
+        password_is_set: false,
     })
 }

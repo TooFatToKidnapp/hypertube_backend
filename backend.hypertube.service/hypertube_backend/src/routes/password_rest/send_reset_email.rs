@@ -189,6 +189,8 @@ pub async fn send_password_reset_email(
             created_at: user.created_at.to_string(),
             updated_at: user.updated_at.to_string(),
             session_id: None,
+            profile_is_finished: user.profile_is_finished,
+            password_is_set: user.password_is_set,
         },
         Err(sqlx::Error::RowNotFound) => {
             tracing::info!("User with email {} not found in database", body.email);

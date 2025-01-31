@@ -44,7 +44,7 @@ pub fn passport_oauth() -> Scope {
 
 pub fn generate_passports() -> Result<Passport, std::io::Error> {
     let passport = Passport::default()
-        .redirect_urls(Redirect::new("https://youtube.com", "http://127.0.0.1:3000/finishprofile/password").map_err(|e| {
+        .redirect_urls(Redirect::new("https://youtube.com", "http://127.0.0.1:3000/profile").map_err(|e| {
             std::io::Error::new(std::io::ErrorKind::Other, e.to_string())
         })?)
         .strategize(

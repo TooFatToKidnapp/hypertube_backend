@@ -59,7 +59,9 @@ pub async fn get_user(
             "updated_at": user_info.updated_at.to_string(),
             "username" : user_info.username,
             "image_url": user_info.image_url,
-            "email": user_info.email
+            "email": user_info.email,
+            "profile_is_finished": user_info.profile_is_finished,
+            "password_is_set":user_info.password_is_set,
         }
     });
 

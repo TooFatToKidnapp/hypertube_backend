@@ -77,6 +77,8 @@ async fn create_user(
                 updated_at: user.updated_at.to_string(),
                 username: user.username,
                 session_id: None,
+                profile_is_finished: user.profile_is_finished,
+                password_is_set: user.password_is_set,
             };
             let session = create_session(connection, new_user.clone(), SameSite::None).await;
             match session {
@@ -169,6 +171,8 @@ pub async fn authenticate_discord(
                 updated_at: user.updated_at.to_string(),
                 username: user.username,
                 session_id: None,
+                profile_is_finished: user.profile_is_finished,
+                password_is_set: user.password_is_set,
             };
 
             tracing::info!("Github Log in event. user email found in the database");

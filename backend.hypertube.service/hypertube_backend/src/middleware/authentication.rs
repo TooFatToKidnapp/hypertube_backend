@@ -37,6 +37,8 @@ pub struct User {
     pub created_at: String,
     pub updated_at: String,
     pub session_id: Option<Uuid>,
+    pub profile_is_finished: bool,
+    pub password_is_set: bool,
 }
 
 // https://imfeld.dev/writing/actix-web-middleware
@@ -221,6 +223,8 @@ where
                         updated_at: user.updated_at.to_string(),
                         email: user.email,
                         session_id: Some(session.id),
+                        profile_is_finished: user.profile_is_finished,
+                        password_is_set: user.password_is_set,
                     }
                 }
                 Err(sqlx::Error::RowNotFound) => {

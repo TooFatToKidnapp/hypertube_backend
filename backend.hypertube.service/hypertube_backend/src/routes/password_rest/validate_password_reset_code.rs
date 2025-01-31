@@ -60,6 +60,8 @@ pub async fn validate_password_reset_code(
             created_at: user.created_at.to_string(),
             updated_at: user.updated_at.to_string(),
             session_id: None,
+            profile_is_finished: user.profile_is_finished,
+            password_is_set: user.password_is_set,
         },
         Err(sqlx::Error::RowNotFound) => {
             tracing::info!("User with username {} not found in database", body.username);

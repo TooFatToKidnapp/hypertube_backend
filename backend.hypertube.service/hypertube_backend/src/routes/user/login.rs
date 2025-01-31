@@ -52,6 +52,19 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
     let user = match result {
         Ok(user) => {
             tracing::info!("got user form database {:#?}", user);
+            // User {
+            //     id: user.id,
+            //     first_name: user.first_name,
+            //     last_name: user.last_name,
+            //     image_url: user.profile_picture_url,
+            //     username: user.username,
+            //     created_at: user.created_at.to_string(),
+            //     updated_at: user.updated_at.to_string(),
+            //     email: user.email,
+            //     session_id: None,
+            //     profile_is_finished: user.profile_is_finished,
+            //     password_is_set: user.password_is_set,
+            // }
             user
         }
         Err(sqlx::Error::RowNotFound) => {
@@ -104,6 +117,8 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
         updated_at: user.updated_at.to_string(),
         username: user.username,
         session_id: None,
+        profile_is_finished: user.profile_is_finished,
+        password_is_set: user.password_is_set,
     };
     let session_result = create_session(connection.as_ref(), user.clone(), SameSite::None).await;
     if session_result.is_err() {

@@ -10,6 +10,7 @@ use argon2::{
     Argon2, PasswordHash, PasswordVerifier,
 };
 use chrono::Utc;
+use lettre::transport::smtp::extension;
 use serde::Deserialize;
 use serde_json::json;
 use sqlx::PgPool;
@@ -46,6 +47,25 @@ pub async fn profile_password_set(
             }
         }
         return HttpResponse::BadRequest().finish();
+    }
+
+    let password_is_set = {
+        let extension = req.extensions();
+        let user_option = extension.get::<Rc<User>>();
+        match user_option {
+            Some(user) => user.password_is_set.clone(),
+            None => {
+                return HttpResponse::BadRequest().json(json!({
+                    "error": "No user info in request payload"
+                }));
+            }
+        }
+    };
+
+    if password_is_set {
+        return HttpResponse::BadRequest().json(json!({
+            "error": "password already set"
+        }));
     }
 
     let user_email = {
@@ -139,10 +159,11 @@ pub async fn profile_password_set(
 
     let query_result = sqlx::query(
         r#"
-				UPDATE users SET password_hash = $1, updated_at = $2 WHERE id = $3
+				UPDATE users SET password_hash = $1, password_is_set = $2 , updated_at = $3 WHERE id = $4
 			"#,
     )
     .bind(password_hash)
+    .bind(true)
     .bind(Utc::now())
     .bind(user.id)
     .execute(connection.as_ref())

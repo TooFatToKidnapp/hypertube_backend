@@ -17,7 +17,7 @@ use validator::ValidationError;
 use crate::middleware::{Authentication, User};
 
 use super::{
-    check_session, get_user, password_set::profile_password_set, profile_password_reset, sign_out_user, update_profile_information, upload_user_profile_image, user_login, user_signup
+    check_session, finish_user_profile_information::finish_profile_information, get_user, password_set::profile_password_set, profile_password_reset, sign_out_user, update_profile_information, upload_user_profile_image, user_login, user_signup
 };
 
 pub fn user_source(db_pool: &PgPool) -> Scope {
@@ -52,6 +52,12 @@ pub fn user_source(db_pool: &PgPool) -> Scope {
             "/update",
             patch()
                 .to(update_profile_information)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/finish",
+            patch()
+                .to(finish_profile_information)
                 .wrap(Authentication::new(db_pool.clone())),
         )
         .route(
