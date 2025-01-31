@@ -1,6 +1,7 @@
 mod get_user_info;
 mod login;
 mod password_reset;
+mod password_set;
 mod sign_out;
 mod signup;
 mod update_user_profile_information;
@@ -11,6 +12,7 @@ mod check_session;
 use get_user_info::*;
 use login::*;
 use password_reset::*;
+use password_set::*;
 use sign_out::*;
 use signup::*;
 use update_user_profile_information::*;

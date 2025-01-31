@@ -13,8 +13,10 @@ use validator::Validate;
 
 #[derive(Deserialize, Debug, Validate)]
 pub struct UserData {
-    #[validate(email(message = "Not a valid email"))]
-    pub email: String,
+    // #[validate(email(message = "Not a valid email"))]
+    // #[validate(username(message = "Not a valid email"))]
+    pub  username: String,
+    // pub email: String,
     pub password: String,
 }
 
@@ -39,9 +41,9 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
 
     let result = sqlx::query!(
         r#"
-            SELECT * FROM users WHERE email = $1 AND password_hash IS NOT NULL
+            SELECT * FROM users WHERE username = $1 AND password_hash IS NOT NULL
         "#,
-        body.email
+        body.username
     )
     .fetch_one(connection.get_ref())
     .instrument(query_span)
@@ -55,7 +57,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
         Err(sqlx::Error::RowNotFound) => {
             tracing::error!("User not found in the database");
             return HttpResponse::Unauthorized().json(json!({
-                "Error": "Invalid email or password"
+                "Error": "Invalid username or password"
             }));
         }
         Err(err) => {
@@ -86,7 +88,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
         false => {
             tracing::error!("Wrong Password");
             return HttpResponse::Unauthorized().json(json!({
-                "Error": "Invalid email or password"
+                "Error": "Invalid username or password"
             }));
         }
     };

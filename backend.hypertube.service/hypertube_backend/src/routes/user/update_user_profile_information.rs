@@ -8,7 +8,7 @@ use actix_web::{
 use chrono::Utc;
 use serde::Deserialize;
 use serde_json::json;
-use sqlx::PgPool;
+use sqlx::{postgres::PgDatabaseError, PgPool};
 use tracing::Instrument;
 use validator::Validate;
 
@@ -109,33 +109,33 @@ pub async fn update_profile_information(
     if body.email.is_some() {
         tracing::info!("Updating user email");
         let new_email = body.email.clone().unwrap();
-        let query_res = sqlx::query(
-            r#"
-				SELECT id FROM users WHERE email = $1
-			"#,
-        )
-        .bind(new_email.as_str())
-        .fetch_optional(&mut *transaction)
-        .instrument(query_span.clone())
-        .await;
+        // let query_res = sqlx::query(
+        //     r#"
+		// 		SELECT id FROM users WHERE email = $1
+		// 	"#,
+        // )
+        // .bind(new_email.as_str())
+        // .fetch_optional(&mut *transaction)
+        // .instrument(query_span.clone())
+        // .await;
 
-        match query_res {
-            Ok(Some(_)) => {
-                tracing::error!("Email already in use");
-                let _ = transaction.rollback().await;
-                return HttpResponse::BadRequest().json(json!({
-                    "error": "Email already in use"
-                }));
-            }
-            Ok(None) => {}
-            Err(err) => {
-                let _ = transaction.rollback().await;
-                tracing::error!("Database error {:#?}", err);
-                return HttpResponse::BadRequest().json(json!({
-                    "error": "something went wrong"
-                }));
-            }
-        }
+        // match query_res {
+        //     Ok(Some(_)) => {
+        //         tracing::error!("Email already in use");
+        //         let _ = transaction.rollback().await;
+        //         return HttpResponse::BadRequest().json(json!({
+        //             "error": "Email already in use"
+        //         }));
+        //     }
+        //     Ok(None) => {}
+        //     Err(err) => {
+        //         let _ = transaction.rollback().await;
+        //         tracing::error!("Database error {:#?}", err);
+        //         return HttpResponse::BadRequest().json(json!({
+        //             "error": "something went wrong"
+        //         }));
+        //     }
+        // }
 
         let update_email_query = sqlx::query(
             r#"
@@ -148,13 +148,26 @@ pub async fn update_profile_information(
         .execute(&mut *transaction)
         .instrument(query_span.clone())
         .await;
-        if update_email_query.is_err() {
-            tracing::error!("Database error {:#?}", update_email_query.unwrap_err());
+        if let Err(err) = update_email_query {
+            tracing::error!("Database error {:#?}", err);
+            if let sqlx::Error::Database(db_err) = &err {
+                if let Some(pg_err) = db_err.try_downcast_ref::<PgDatabaseError>() {
+                    if pg_err.code() == "23505" {
+                        // 23505 is the PostgreSQL error code for unique_violation
+                        tracing::error!("Duplicate value error: {:#?}", err);
+                        let _ = transaction.rollback().await;
+                        return HttpResponse::Conflict().json(json!({
+                            "error": "email is already taken",
+                            "field": "email"
+                        }));
+                    }
+                }
+            }
             let _ = transaction.rollback().await;
             return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
-        }
+    }
     }
 
     if body.first_name.is_some() {
@@ -217,13 +230,35 @@ pub async fn update_profile_information(
         .execute(&mut *transaction)
         .instrument(query_span.clone())
         .await;
-        if update_username_query.is_err() {
-            tracing::error!("Database error {:#?}", update_username_query.unwrap_err());
+
+        if let Err(err) = update_username_query {
+            tracing::error!("Database error {:#?}", err);
+            if let sqlx::Error::Database(db_err) = &err {
+                if let Some(pg_err) = db_err.try_downcast_ref::<PgDatabaseError>() {
+                    if pg_err.code() == "23505" {
+                        // 23505 is the PostgreSQL error code for unique_violation
+                        tracing::error!("Duplicate value error: {:#?}", err);
+                        let _ = transaction.rollback().await;
+                        return HttpResponse::Conflict().json(json!({
+                            "error": "username is already taken",
+                            "field": "username"
+                        }));
+                    }
+                }
+            }
             let _ = transaction.rollback().await;
             return HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"
             }));
         }
+
+        // if update_username_query.is_err() {
+        //     tracing::error!("Database error {:#?}", update_username_query.unwrap_err());
+        //     let _ = transaction.rollback().await;
+        //     return HttpResponse::BadRequest().json(json!({
+        //         "error": "something went wrong"
+        //     }));
+        // }
     }
 
     match transaction.commit().await {
@@ -262,6 +297,7 @@ pub async fn update_profile_information(
             }))
         }
         Err(err) => {
+
             tracing::error!("Database error  {:#?}", err);
             HttpResponse::BadRequest().json(json!({
                 "error": "something went wrong"

@@ -5,7 +5,7 @@ use actix_web::{
         time::{Duration, OffsetDateTime},
         Cookie, Expiration, SameSite,
     },
-    web::{self, get, patch, post},
+    web::{self, delete, get, patch, post},
     Scope,
 };
 use chrono::Utc;
@@ -17,7 +17,7 @@ use validator::ValidationError;
 use crate::middleware::{Authentication, User};
 
 use super::{
-    check_session, get_user, profile_password_reset, sign_out_user, update_profile_information, upload_user_profile_image, user_login, user_signup
+    check_session, get_user, password_set::profile_password_set, profile_password_reset, sign_out_user, update_profile_information, upload_user_profile_image, user_login, user_signup
 };
 
 pub fn user_source(db_pool: &PgPool) -> Scope {
@@ -31,6 +31,12 @@ pub fn user_source(db_pool: &PgPool) -> Scope {
                 .wrap(Authentication::new(db_pool.clone())),
         )
         .route(
+            "/passwordset",
+            post()
+                .to(profile_password_set)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
             "/upload",
             post()
                 .to(upload_user_profile_image)
@@ -38,7 +44,7 @@ pub fn user_source(db_pool: &PgPool) -> Scope {
         )
         .route(
             "/sign-out",
-            get()
+            delete()
                 .to(sign_out_user)
                 .wrap(Authentication::new(db_pool.clone())),
         )

@@ -1,4 +1,4 @@
-use crate::routes::validate_password;
+use crate::routes::{validate_password, validate_user_name};
 use actix_web::{
     web::{Data, Json},
     HttpResponse,
@@ -35,8 +35,8 @@ fn validate_verification_id(verification_id: &str) -> Result<(), ValidationError
 pub struct UpdatePassword {
     #[validate(custom(function = "validate_password"))]
     pub new_password: String,
-    #[validate(email(message = "Not a valid email"))]
-    pub email: String,
+    #[validate(custom(function = "validate_user_name"))]
+    pub username: String,
     #[validate(custom(function = "validate_verification_id"))]
     pub verification_id: String,
 }
@@ -61,9 +61,10 @@ pub async fn reset_password(body: Json<UpdatePassword>, connection: Data<PgPool>
 
     let query_res = sqlx::query!(
         r#"
-            SELECT * from password_verification_code WHERE id = $1
+            SELECT * from password_verification_code WHERE id = $1 AND username = $2
         "#,
-        Uuid::parse_str(body.verification_id.as_str()).unwrap()
+        Uuid::parse_str(body.verification_id.as_str()).unwrap(),
+        body.username.as_str()
     )
     .fetch_one(connection.as_ref())
     .instrument(query_span.clone())
@@ -104,11 +105,11 @@ pub async fn reset_password(body: Json<UpdatePassword>, connection: Data<PgPool>
 
     let query_res = sqlx::query!(
         r#"
-            UPDATE users SET password_hash = $1, updated_at = $2 WHERE email = $3
+            UPDATE users SET password_hash = $1, updated_at = $2 WHERE username = $3
         "#,
         password_hash,
         Utc::now(),
-        body.email
+        body.username
     )
     .execute(connection.as_ref())
     .instrument(query_span.clone())
