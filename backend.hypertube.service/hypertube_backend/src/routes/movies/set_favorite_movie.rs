@@ -14,6 +14,8 @@ pub struct FavoriteMovie {
     movie_imdb_code: Option<String>,
     movie_source: String,
     poster_src: String,
+    rating: String,
+    genres: Vec<String>,
 }
 
 pub async fn set_favorite_movie(
@@ -40,13 +42,15 @@ pub async fn set_favorite_movie(
     let created_at: DateTime<Utc> = Utc::now();
 
     let query = sqlx::query!(
-        "INSERT INTO favorite_movies (user_id, movie_id, title ,movie_imdb_code, movie_source, poster_src, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7)",
+        "INSERT INTO favorite_movies (user_id, movie_id, title ,movie_imdb_code, movie_source, poster_src, rating, genres, created_at) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
         visitor_id,
         movie.movie_id,
         movie.title,
         movie.movie_imdb_code,
         movie.movie_source,
         movie.poster_src,
+        movie.rating,
+        &movie.genres,
         created_at
     );
 

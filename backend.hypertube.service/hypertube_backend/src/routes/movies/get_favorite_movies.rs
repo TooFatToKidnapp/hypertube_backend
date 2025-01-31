@@ -45,7 +45,8 @@ pub async fn get_favorite_movies(
     };
 
     let query = sqlx::query!(
-        "SELECT movie_id, movie_imdb_code, title, poster_src, movie_source, created_at FROM favorite_movies WHERE user_id = $1",
+        // "SELECT movie_id, movie_imdb_code, title, poster_src, movie_source, created_at FROM favorite_movies WHERE user_id = $1",
+        "SELECT * FROM favorite_movies WHERE user_id = $1",
         visitor_id
     );
 
@@ -57,6 +58,8 @@ pub async fn get_favorite_movies(
                     "movie_imdb_code": record.movie_imdb_code,
                     "movie_source": record.movie_source,
                     "created_at": record.created_at,
+                    "rating": record.rating,
+                    "genres": record.genres,
                     "poster_src": record.poster_src,
                     "title":record.title,
                 })
