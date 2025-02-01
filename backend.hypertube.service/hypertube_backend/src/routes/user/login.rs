@@ -141,7 +141,9 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
                 "created_at": user.created_at.to_string(),
                 "updated_at": user.updated_at.to_string(),
                 "username" : user.username,
-                "image_url": user.image_url
+                "image_url": user.image_url,
+                "profile_is_finished": user.profile_is_finished,
+                "password_is_set":user.password_is_set,
             }
         }))
 }

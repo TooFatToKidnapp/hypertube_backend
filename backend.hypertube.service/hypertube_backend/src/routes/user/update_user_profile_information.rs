@@ -292,7 +292,9 @@ pub async fn update_profile_information(
                     "created_at": user.created_at.to_string(),
                     "updated_at": user.updated_at.to_string(),
                     "username" : user.username,
-                    "image_url": user.profile_picture_url
+                    "image_url": user.profile_picture_url,
+                    "profile_is_finished": user.profile_is_finished,
+                    "password_is_set":user.password_is_set,
                 }
             }))
         }
