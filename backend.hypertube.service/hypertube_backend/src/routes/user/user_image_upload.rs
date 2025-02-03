@@ -220,9 +220,7 @@ pub async fn upload_user_profile_image(
         Ok(_) => {
             tracing::info!("image saved successfully in the database");
             HttpResponse::Ok().json(json!({
-                "data": {
                     "image_url": image_url
-                }
             }))
         }
         Err(err) => {
