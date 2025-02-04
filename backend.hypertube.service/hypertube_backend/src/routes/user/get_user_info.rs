@@ -82,6 +82,7 @@ pub async fn get_profile(
     connection: Data<PgPool>,
 ) -> HttpResponse {
     let query_span = tracing::info_span!("Get User info event");
+    // tracing::info!("{}", path);
 
     // let is_valid = path.validate();
     // if let Err(error) = is_valid {
