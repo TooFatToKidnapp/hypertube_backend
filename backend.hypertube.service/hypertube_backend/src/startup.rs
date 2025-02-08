@@ -1,6 +1,7 @@
 use crate::passport::{generate_passports, passport_route_redirect, passport_oauth};
 use crate::routes::hello_world::handler;
 use crate::routes::movies::movie_source;
+use crate::routes::subtitles::subtitle_source;
 use crate::routes::password_rest::password_source;
 use crate::routes::user::user_source;
 use crate::routes::{comment_source, CronJobScheduler};
@@ -55,6 +56,7 @@ pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std:
             .service(user_source(&db_pool))
             .service(password_source())
             .service(movie_source(&db_pool))
+            .service(subtitle_source(&db_pool))
             .route("/", web::get().to(handler))
             .app_data(db_pool.clone())
     })
