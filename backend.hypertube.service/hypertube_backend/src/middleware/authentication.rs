@@ -37,6 +37,8 @@ pub struct User {
     pub created_at: String,
     pub updated_at: String,
     pub session_id: Option<Uuid>,
+    pub profile_is_finished: bool,
+    pub password_is_set: bool,
 }
 
 // https://imfeld.dev/writing/actix-web-middleware
@@ -149,6 +151,7 @@ where
 
             let session = match session_query_res {
                 Ok(session) => {
+                    tracing::info!("USER ID: {}", session.user_id);
                     tracing::info!("Found session");
                     session
                 }
@@ -220,6 +223,8 @@ where
                         updated_at: user.updated_at.to_string(),
                         email: user.email,
                         session_id: Some(session.id),
+                        profile_is_finished: user.profile_is_finished,
+                        password_is_set: user.password_is_set,
                     }
                 }
                 Err(sqlx::Error::RowNotFound) => {
@@ -242,7 +247,17 @@ where
                 }
             };
 
+            tracing::info!("INSERTING USER: {:#?}", user);
             req.extensions_mut().insert::<Rc<User>>(Rc::new(user));
+
+            if let Some(user) = req.extensions().get::<Rc<User>>() {
+                tracing::debug!("User found M: {:?}", user);
+                // HttpResponse::Ok().body(format!("Hello, {}!", user.username))
+            } else {
+                tracing::debug!("User not found in request extensions M");
+                // HttpResponse::Unauthorized().body("User not found")
+            }
+
             let fut = service.call(req);
             let res: ServiceResponse<B> = fut.await?;
             Ok(res.map_into_left_body())

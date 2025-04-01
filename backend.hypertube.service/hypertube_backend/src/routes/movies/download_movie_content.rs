@@ -1,3 +1,7 @@
+use std::process::Command;
+use std::env;
+use std::path::PathBuf;
+
 use crate::routes::{schedule_handler, CronJobScheduler};
 
 use super::torrent::RqbitWrapper;
@@ -13,9 +17,29 @@ use tracing::Instrument; // Import the missing type
 
 #[derive(Deserialize)]
 pub struct MovieInfo {
-    pub movie_id: i32,
+    pub movie_id: String,
     pub source: Source,
     pub magnet_url: String,
+}
+
+
+fn convert_video(input_path: &str, output_path: &str, format: &str) -> Result<(), Box<dyn std::error::Error>> {
+    // Convert the video using FFmpeg
+    let output_file = format!("{}.{}", output_path, format);
+    Command::new("ffmpeg")
+        .arg("-i")
+        .arg(input_path)
+        .arg(&output_file)
+        .status()?;
+    Ok(())
+}
+
+fn get_download_folder() -> Result<PathBuf, String> {
+    let current_dir = env::current_dir().map_err(|err| format!("failed to get current directory{}", err))?;
+    let parent_dir = current_dir.parent().ok_or("Failed to get parrent Directory")?;
+    let target_folder = parent_dir.join("Downloads");
+
+    Ok(target_folder)
 }
 
 pub async fn download_torrent(
@@ -26,23 +50,19 @@ pub async fn download_torrent(
     let query_span = tracing::trace_span!("Start torrent Download Handler");
 
     let torrent_client = RqbitWrapper::default();
+
     // let output_folder = format!("");
     let download_path = {
-        let mut base_path = match std::env::current_dir() {
-            Ok(dir) => dir.display().to_string(),
-            Err(_err) => "/tmp".to_string(),
-        };
-        base_path.push_str(
-            format!(
-                "/Download/{}_{}_{}",
-                body.movie_id,
-                body.source,
-                chrono::Utc::now().date_naive()
-            )
-            .as_str(),
-        );
-        base_path
+        // let mut base_path = match std::env::current_dir() {
+        //     Ok(dir) => dir.display().to_string(),
+        //     Err(_err) => "/tmp".to_string(),
+        // };
+        let path = format!("{}_{}_{}",body.movie_id, body.source, chrono::Utc::now().date_naive());
+        path
     };
+
+    tracing::info!("DOWNLOAD PATH: {}", download_path);
+
     let meta_data = match torrent_client
         .download_torrent(&body.magnet_url, Some(download_path))
         .await
@@ -59,6 +79,35 @@ pub async fn download_torrent(
         }
     };
 
+    if (meta_data.file_type != "mp4" || meta_data.file_type != "webm"){
+        tracing::info!("--------HERE START CONVERT TO MKV---------");
+        let converted_path = match get_download_folder() {
+            Ok(path) => format!("{}/{}", path.display(), "videos/converted/video"),
+            Err(e) => return HttpResponse::InternalServerError().finish(),
+        };
+        // let converted_path = format!("{}/{}",, "videos/converted/video");
+        convert_video(&meta_data.path, &converted_path, "mkv");
+        convert_video(&meta_data.path, &converted_path, "m3u8");
+
+        // let client = reqwest::Client::new();
+        // let res = client.post("localhost:3001/hls")
+        //                             .json(&json!({
+        //                                 "video_path": meta_data.path,
+        //                                 "id": body.movie_id
+        //                             })).send().await;
+        // let response = match res {
+        //     Ok(val) => {
+        //         val
+        //     }
+        //     Err(err) => {
+        //         // use the error response from the server
+        //         return  HttpResponse::InternalServerError().json(json!({"error":"couldn't convert file"}));
+        //     }
+        // };
+
+        tracing::info!("--------HERE END CONVERT TO MKV---------");
+    }
+
     let query_res = sqlx::query(
     r#"
         INSERT INTO movie_torrent (id, movie_source, movie_id, created_at, movie_path, torrent_id, file_type, available_subs)
@@ -66,7 +115,7 @@ pub async fn download_torrent(
     "#)
     .bind(Uuid::new_v4())
     .bind(body.source.clone() as Source)
-    .bind(body.movie_id)
+    .bind(body.movie_id.clone())
     .bind(Utc::now())
     .bind(meta_data.path.clone())
     .bind(meta_data.id.parse::<i32>().unwrap())
@@ -81,7 +130,7 @@ pub async fn download_torrent(
             tracing::info!("torrent created successfully!");
             let _ = schedule_handler(
                 &corn_job_handler,
-                CronJobScheduler::build_job_id(body.movie_id, body.source.clone()),
+                CronJobScheduler::build_job_id(body.movie_id.clone(), body.source.clone()),
                 &connection,
             )
             .await;

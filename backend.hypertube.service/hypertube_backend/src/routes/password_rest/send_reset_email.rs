@@ -90,30 +90,30 @@ fn build_email(verification_code: &str, username: &str) -> String {
 
     format!(
         r##"
-            <!DOCTYPE html>
-            <html lang="en">
-            <head>
-                <meta charset="UTF-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                {}
-            </head>
-            <body>
-                <div class="container">
-                    <div class="header">
-                        <h1>Reset your password?</h1>
-                    </div>
-                    <div class="content">
-                        <p>Hello,</p>
-                        <p>We received a request to reset your password. Use the verification code below to reset your password. If you did not request a password reset, please ignore this email.</p>
-                        <p>the verification code is only valid for 10 minutes</p>
-                        <div class="verification-code">{}</div>
-                    </div>
-                    <div class="footer">
-                        <p>This email was meant for {}</p>
+        <!DOCTYPE html>
+        <html lang="en">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            {}
+        </head>
+        <body>
+            <div class="container">
+                <div class="header">
+                    <h1>Reset your password?</h1>
+                </div>
+                <div class="content">
+                    <p>Hello,</p>
+                    <p>We received a request to reset your password. Use the link below to reset your password. If you did not request a password reset, please ignore this email.</p>
+                    <p>The link is only valid for 10 minutes</p>
+                    <div class="verification-link">
+                        <a href="http://127.0.0.1:3000/new_password?verification_code={}&username={}">Reset Password</a>
                     </div>
                 </div>
-            </body>
-            </html>
+                
+            </div>
+        </body>
+        </html>
         "##,
         style, verification_code, username
     )
@@ -189,6 +189,8 @@ pub async fn send_password_reset_email(
             created_at: user.created_at.to_string(),
             updated_at: user.updated_at.to_string(),
             session_id: None,
+            profile_is_finished: user.profile_is_finished,
+            password_is_set: user.password_is_set,
         },
         Err(sqlx::Error::RowNotFound) => {
             tracing::info!("User with email {} not found in database", body.email);
@@ -208,10 +210,10 @@ pub async fn send_password_reset_email(
 
     let delete_query_res = sqlx::query(
         r#"
-            DELETE FROM password_verification_code WHERE user_id = $1
+            DELETE FROM password_verification_code WHERE username = $1
         "#,
     )
-    .bind(user.id)
+    .bind(&user.username)
     .execute(connection.as_ref())
     .instrument(query_span.clone())
     .await;
@@ -238,12 +240,12 @@ pub async fn send_password_reset_email(
 
     let query_res = sqlx::query(
         r#"
-            INSERT INTO password_verification_code (id, user_id, expires_at, created_at, code)
+            INSERT INTO password_verification_code (id, username, expires_at, created_at, code)
             VALUES ($1, $2, $3, $4, $5)
         "#,
     )
     .bind(Uuid::new_v4())
-    .bind(user.id)
+    .bind(&user.username)
     .bind(Utc::now() + chrono::Duration::minutes(10))
     .bind(Utc::now())
     .bind(code.as_str())
@@ -262,7 +264,7 @@ pub async fn send_password_reset_email(
         }
     };
     let send_email_res = send_email(
-        build_email(code.as_str(), user.username.as_str()),
+        build_email(code.as_str(), &user.username),
         user.email.as_str(),
     );
     match send_email_res {

@@ -1,13 +1,34 @@
-use actix_web::{http, web::Path, HttpResponse};
+use actix_web::{http, web::{Data, Path}, HttpRequest, HttpResponse};
+use bigdecimal::BigDecimal;
 use serde_json::json;
+use sqlx::PgPool;
+use tracing::Span;
+
+use crate::routes::movies::types::ImdbMovieDetails;
 
 use super::{map_movie_bd_genre_code_with_value, Source};
 // https://trakt.tv
 // https://trakt.docs.apiary.io/#introduction/standard-media-objects
-pub async fn get_movie_info(path: Path<(u32, Source)>) -> HttpResponse {
+pub async fn get_movie_info(
+    path: Path<(String, Source)>,
+    connection: Data<PgPool>,
+    req: HttpRequest,
+    // query_span: Span,
+) -> HttpResponse {
     let (movie_id, source_provider) = path.into_inner();
+    // let query_span = tracing::Span::new(meta, values)
 
     if source_provider == Source::YTS {
+
+        let movie_id: u32 = match movie_id.parse() {
+            Ok(id) => id,
+            Err(_) => {
+                return HttpResponse::BadRequest().json(json!({
+                    "error": "Invalid movie ID format"
+                }));
+            }
+        };
+
         let movie_details = match yts_api::MovieDetails::new(movie_id)
             .with_cast(true)
             .with_images(true)
@@ -62,204 +83,56 @@ pub async fn get_movie_info(path: Path<(u32, Source)>) -> HttpResponse {
         }
     } else if source_provider == Source::MovieDb {
         let client = reqwest::Client::new();
-        let movie_db_token = std::env::var("MOVIE_DB_AUTH_TOKEN").unwrap();
-        let movie_details = client
-            .get(format!(
-                "https://api.themoviedb.org/3/movie/{}?language=en-US",
-                movie_id
-            ))
-            .header(
-                http::header::AUTHORIZATION,
-                format!("Bearer {}", movie_db_token),
-            )
-            .send()
-            .await;
-        let response = match movie_details {
-            Ok(res) => {
-                tracing::info!("Got Movie db search response");
-                res
-            }
-            Err(err) => {
-                tracing::error!("MOVIE DB request error {:#?}", err);
-                return HttpResponse::BadRequest().json(json!({
-                    "error": err.to_string()
-                }));
-            }
-        };
-        let mut res_body = match response.json::<serde_json::Value>().await {
-            Ok(body) => body,
-            Err(err) => {
-                return HttpResponse::BadRequest().json(json!({
-                    "error": err.to_string()
-                }));
-            }
-        };
-        if res_body["backdrop_path"].as_str().is_some() {
-            let path = res_body["backdrop_path"].as_str().unwrap();
-            *res_body.get_mut("backdrop_path").unwrap() =
-                json!(format!("https://image.tmdb.org/t/p/original{}", path));
+        // let res_body;
+        
+        let m = sqlx::query!(r#"
+        Select * From imdb_movie_details Where id = $1
+        "#, movie_id)
+        .fetch_one(connection.get_ref())
+        // .instrument(query_span.clone())
+        .await;
+    
+    let movie = match m {
+        Ok(val) => {
+            val
         }
-        if res_body["belongs_to_collection"]["poster_path"]
-            .as_str()
-            .is_some()
-        {
-            let path = res_body["belongs_to_collection"]["poster_path"]
-                .as_str()
-                .unwrap();
-            *res_body["belongs_to_collection"]
-                .get_mut("poster_path")
-                .unwrap() = json!(format!("https://image.tmdb.org/t/p/original{}", path));
+        Err(err) =>{
+            tracing::error!("ERR RUERYING THE MOVIE : {}", err);
+            return HttpResponse::BadRequest().finish();
         }
-        if res_body["belongs_to_collection"]["backdrop_path"]
-            .as_str()
-            .is_some()
-        {
-            let path = res_body["belongs_to_collection"]["backdrop_path"]
-                .as_str()
-                .unwrap();
-            *res_body["belongs_to_collection"]
-                .get_mut("backdrop_path")
-                .unwrap() = json!(format!("https://image.tmdb.org/t/p/original{}", path));
-        }
-        if res_body["poster_path"].as_str().is_some() {
-            let path = res_body["poster_path"].as_str().unwrap();
-            *res_body.get_mut("poster_path").unwrap() =
-                json!(format!("https://image.tmdb.org/t/p/original{}", path));
-        }
-        // production_companies // logo_path
-        if res_body["production_companies"].as_array_mut().is_some() {
-            let arr = res_body["production_companies"].as_array_mut().unwrap();
-            for elm in arr.iter_mut() {
-                if elm["logo_path"].as_str().is_some() {
-                    let path = elm["logo_path"].as_str().unwrap();
-                    *elm.get_mut("logo_path").unwrap() =
-                        json!(format!("https://image.tmdb.org/t/p/original{}", path));
-                }
-            }
-        }
-        let cast_info = match client
-            .get(format!(
-                "https://api.themoviedb.org/3/movie/{}/credits?language=en-US",
-                movie_id
-            ))
-            .header(
-                http::header::AUTHORIZATION,
-                format!("Bearer {}", movie_db_token),
-            )
-            .send()
-            .await
-        {
-            Ok(cast_res) => cast_res,
-            Err(err) => {
-                tracing::error!("Movie Db error getting cast {:#?}", err);
-                return HttpResponse::BadRequest().json(json!({
-                    "error": "error getting movie cast"
-                }));
-            }
-        };
-        if let Ok(mut cast_body) = cast_info.json::<serde_json::Value>().await {
-            if cast_body["cast"].as_array().is_some() {
-                let cast_arr_ref = cast_body["cast"].as_array_mut().unwrap();
-                for cast in cast_arr_ref.iter_mut() {
-                    if cast["profile_path"].as_str().is_some() {
-                        let path = cast["profile_path"].as_str().unwrap();
-                        *cast.get_mut("profile_path").unwrap() =
-                            json!(format!("https://image.tmdb.org/t/p/w500{}", path));
-                    }
-                }
-                res_body["cast"] = cast_body["cast"].clone();
-            }
-        }
+    };
+    
+    let imdb_movie_details = ImdbMovieDetails {
+        id: movie.id,
+        primary_title: movie.primary_title.unwrap_or_default(),
+        original_title: movie.original_title.unwrap_or_default(),
+        source_type: movie.source_type.unwrap_or_default(),
+        genres: movie.genres.unwrap_or_default(),
+        is_adult: movie.is_adult.unwrap_or_default(),
+        start_year: movie.start_year.unwrap_or_default(),
+        end_year: movie.end_year.unwrap_or_default(),
+        runtime_minutes: movie.runtime_minutes.unwrap_or_default(),
+        average_rating: movie.average_rating.unwrap_or_default().to_string(),
+        num_votes: movie.num_votes.unwrap_or_default(),
+        description: movie.description.unwrap_or_default(),
+        primary_image: movie.primary_image.unwrap_or_default(),
+        content_rating: movie.content_rating.unwrap_or_default(),
+        release_date: movie.release_date,
+        interests: movie.interests.unwrap_or_default(),
+        countries_of_origin: movie.countries_of_origin.unwrap_or_default(),
+        external_links: movie.external_links.unwrap_or_default(),
+        spoken_languages: movie.spoken_languages.unwrap_or_default(),
+        filming_locations: movie.filming_locations.unwrap_or_default(),
+        directors: movie.directors.unwrap_or_default(),
+        writers: movie.writers.unwrap_or_default(),
+        cast: movie.cast.unwrap_or_default(),
+        budget: movie.budget.unwrap_or_default(),
+        gross_world_wide: movie.gross_world_wide.unwrap_or_default(),
+        torrents: movie.torrents.unwrap_or_default(),
+    };
+        tracing::info!("THE QUERIED MOVIE: {:#?}", imdb_movie_details);
 
-        let trailer_response = match client
-            .get(format!(
-                "https://api.themoviedb.org/3/movie/{}/videos?language=en-US",
-                movie_id
-            ))
-            .header(
-                http::header::AUTHORIZATION,
-                format!("Bearer {}", movie_db_token),
-            )
-            .send()
-            .await
-        {
-            Ok(res) => {
-                tracing::info!("Got Movie db trailer response");
-                res.json::<serde_json::Value>().await
-            }
-            Err(err) => {
-                tracing::error!("The Movie Db Movie Trailer error {:#?}", err);
-                return HttpResponse::BadRequest().json(json!({
-                    "error": err.to_string()
-                }));
-            }
-        };
-        if let Ok(mut trailer_body) = trailer_response {
-            if trailer_body["results"].as_array().is_some() {
-                let trailer_arr = trailer_body["results"].as_array_mut().unwrap();
-                for elem in trailer_arr.iter_mut() {
-                    if elem["key"].as_str().is_some() {
-                        let key = elem["key"].as_str().unwrap();
-                        elem["trailer_url"] =
-                            json!(format!("https://www.youtube.com/watch?v={}", key));
-                    }
-                }
-            }
-            res_body["trailer_info"] = trailer_body["results"].clone();
-        };
-
-        let recommendation_response = match client
-            .get(format!(
-                "https://api.themoviedb.org/3/movie/{}/similar?language=en-US&page=1",
-                movie_id
-            ))
-            .header(
-                http::header::AUTHORIZATION,
-                format!("Bearer {}", movie_db_token),
-            )
-            .send()
-            .await
-        {
-            Ok(res) => {
-                tracing::info!("Got Movie db recommendation response");
-                res.json::<serde_json::Value>().await
-            }
-            Err(err) => {
-                tracing::error!("The Movie Db Movie recommendation error {:#?}", err);
-                return HttpResponse::BadRequest().json(json!({
-                    "error": err.to_string()
-                }));
-            }
-        };
-        if let Ok(mut rec_body) = recommendation_response {
-            if rec_body["results"].as_array().is_some() {
-                let trailer_arr = rec_body["results"].as_array_mut().unwrap();
-                for elem in trailer_arr.iter_mut() {
-                    if elem["backdrop_path"].as_str().is_some() {
-                        let path = elem["backdrop_path"].as_str().unwrap();
-                        *elem.get_mut("backdrop_path").unwrap() =
-                            json!(format!("https://image.tmdb.org/t/p/original{}", path));
-                    }
-                    if elem["poster_path"].as_str().is_some() {
-                        let path = elem["poster_path"].as_str().unwrap();
-                        *elem.get_mut("poster_path").unwrap() =
-                            json!(format!("https://image.tmdb.org/t/p/w500{}", path));
-                    }
-                    if elem["genre_ids"].as_array().is_some() {
-                        let genre_arr = elem["genre_ids"].as_array().unwrap();
-                        let value_arr = genre_arr
-                            .iter()
-                            .map(|g| json!(g))
-                            .collect::<Vec<serde_json::Value>>();
-                        let genres = map_movie_bd_genre_code_with_value(&value_arr);
-                        *elem.get_mut("genre_ids").unwrap() = json!(genres);
-                    }
-                }
-            }
-            res_body["similar_movies"] = rec_body["results"].clone();
-        };
-
-        return HttpResponse::Ok().json(res_body);
+        return HttpResponse::Ok().json(imdb_movie_details);
     }
     HttpResponse::BadRequest().finish()
 }

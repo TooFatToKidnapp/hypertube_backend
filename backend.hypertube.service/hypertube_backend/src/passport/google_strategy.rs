@@ -1,59 +1,51 @@
 use actix_web::cookie::SameSite;
+use actix_web::web::Query;
 use actix_web::HttpResponse;
-use actix_web::{
-    http,
-    web::{self, Data},
-};
-use passport_strategies::basic_client::{PassPortBasicClient, PassportResponse, StateCode};
-use passport_strategies::strategies::GoogleStrategy;
+use actix_web::{http, web::Data};
+use passport_strategies::passport::{Choice, Passport, StateCode};
 use serde_json::json;
 use sqlx::PgPool;
-use std::env;
+use tokio::sync::RwLock;
+use serde_json::Value;
 
-use super::AppState;
 use crate::middleware::User;
 use crate::routes::create_session;
-use chrono::Utc;
+use sqlx::types::chrono::Utc;
 use tracing::Instrument;
 
-pub async fn google(passport: Data<AppState>) -> HttpResponse {
-    tracing::info!("Google Oauth2 called");
-    let mut auth = passport.google_passport.write().await;
-    auth.authenticate("google");
-    let url = auth.generate_redirect_url();
-    HttpResponse::Ok().json(json!({
-        "redirect_url" : url
-    }))
+
+
+pub async fn google(passport: Data<RwLock<Passport>>) -> HttpResponse {
+    tracing::info!("CALLING GOOGLE OAUTH");
+    let mut auth = passport.write().await;
+
+    let url = auth.redirect_url(Choice::Google);
+
+    tracing::info!("{:#?}", url);
+    HttpResponse::SeeOther()
+        .append_header((http::header::LOCATION, url))
+        .finish()
 }
 
 pub async fn authenticate_google(
-    auth: Data<AppState>,
-    authstate: web::Query<StateCode>,
+    passport: Data<RwLock<Passport>>,
+    Query(statecode): Query<StateCode>,
     connection: Data<PgPool>,
 ) -> HttpResponse {
     let query_span = tracing::info_span!("Google Passport Event");
 
-    let mut auth = auth.google_passport.write().await;
-    auth.authenticate("google");
-    let profile = match auth.get_profile(authstate.0).await {
-        Ok(response) => {
-            let res = match response {
-                PassportResponse::Profile(profile) => {
-                    tracing::info!("Got Google Profile");
-                    profile
-                }
-                PassportResponse::FailureRedirect(failure) => {
-                    tracing::info!("didn't get user Google profile. user redirected");
-                    return HttpResponse::SeeOther()
-                        .append_header((http::header::LOCATION, failure.to_string()))
-                        .finish();
-                }
-            };
-            res
+    let mut auth = passport.write().await;
+    let (profile, success_redirect_url) = match auth.authenticate(Choice::Google, statecode).await {
+        (Some(response), url) => {
+            tracing::info!("Got Google Profile");
+            tracing::info!("Profile: {:#?}", response.profile);
+            (response.profile, url)
         }
-        Err(error) => {
-            tracing::error!("Error: Bad Google Profile response");
-            return HttpResponse::BadRequest().body(error.to_string());
+        (None, url) => {
+            tracing::info!("didn't get user Google profile. user redirected");
+            return HttpResponse::SeeOther()
+                .append_header((http::header::LOCATION, url))
+                .finish();
         }
     };
 
@@ -89,6 +81,8 @@ pub async fn authenticate_google(
                 updated_at: user.updated_at.to_string(),
                 username: user.username,
                 session_id: None,
+                profile_is_finished: user.profile_is_finished,
+                password_is_set: user.password_is_set,
             };
             let session_result =
                 create_session(connection.as_ref(), user.clone(), SameSite::None).await;
@@ -101,28 +95,46 @@ pub async fn authenticate_google(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().cookie(session_result.unwrap()).finish()
+
+            HttpResponse::SeeOther()
+            .append_header((http::header::LOCATION, success_redirect_url))
+            .cookie(session_result.unwrap())
+            .finish()
+
+            // HttpResponse::Ok().cookie(session_result.unwrap()).finish()
         }
         Err(sqlx::Error::RowNotFound) => {
             tracing::info!("Google Sign up event. user email was not found in the database");
-            let id = uuid::Uuid::new_v4();
-            let user_name = &profile["names"][0]["givenName"];
-            if user_name.as_str().is_none() {
-                tracing::error!("Error: user name not found in response");
-                return HttpResponse::BadRequest().json(json!({
-                    "error": "Missing name from google payload"
-                }));
-            }
-            let user_name = user_name.as_str().unwrap();
+            // let id = uuid::Uuid::new_v4();
+            let user_result = profile_to_user(&profile);
+            let user = match user_result {
+                Ok(user) => user,
+                Err(err) => {
+                    tracing::error!("Error: user name not found in response");
+                    return HttpResponse::BadRequest().json(json!({
+                        "error": "Missing name from google payload"
+                    }));
+                }
+            };
+            // let user_name = &profile["names"][0]["displayName"];
+            // if user_name.as_str().is_none() {
+            //     tracing::error!("Error: user name not found in response");
+            //     return HttpResponse::BadRequest().json(json!({
+            //         "error": "Missing name from google payload"
+            //     }));
+            // }
+            // let user_name = user_name.as_str().unwrap();
             let query_res = sqlx::query!(
                 r#"
-                    INSERT INTO users (id, username, email, created_at, updated_at)
-                    VALUES ($1, $2, $3, $4, $5)
+                    INSERT INTO users (id, first_name, last_name, username, email, created_at, updated_at)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
                     RETURNING *
                 "#,
-                id,
-                user_name,
-                user_email,
+                user.id,
+                user.first_name,
+                user.last_name,
+                user.username,
+                user.email,
                 Utc::now(),
                 Utc::now(),
             )
@@ -147,9 +159,11 @@ pub async fn authenticate_google(
                 updated_at: user_rec.updated_at.to_string(),
                 username: user_rec.username,
                 session_id: None,
+                profile_is_finished: user.profile_is_finished,
+                password_is_set: user.password_is_set,
             };
             let session_result =
-                create_session(connection.as_ref(), user.clone(), SameSite::None).await;
+                create_session(connection.as_ref(), user.clone(), SameSite::Strict).await;
             if session_result.is_err() {
                 tracing::error!(
                     "Failed to generate user session  {}",
@@ -159,7 +173,17 @@ pub async fn authenticate_google(
                     "error": "something went wrong"
                 }));
             }
-            HttpResponse::Ok().cookie(session_result.unwrap()).finish()
+
+            HttpResponse::SeeOther()
+                .append_header((http::header::LOCATION, success_redirect_url))
+                .cookie(session_result.unwrap())
+                .finish()
+
+            // HttpResponse::Ok()
+            //     .cookie(session_result.unwrap())
+            //     .json(json!( {
+            //         "url" : success_redirect_url
+            //     }))
         }
         Err(err) => {
             tracing::error!("database Error {:#?}", err);
@@ -170,22 +194,64 @@ pub async fn authenticate_google(
     }
 }
 
-pub fn generate_google_passport() -> PassPortBasicClient {
-    let mut passport = PassPortBasicClient::default();
-    let scope = env::var("GOOGLE_CLIENT_SCOPE").unwrap();
-    let scopes: Vec<&str> = scope.split(',').collect();
-    let mut backend_url = env::var("BACKEND_URL").unwrap();
-    backend_url.push_str("/redirect/google");
+// pub fn generate_google_passport() -> PassPortBasicClient {
+//     let mut passport = PassPortBasicClient::default();
+//     let scope = env::var("GOOGLE_CLIENT_SCOPE").unwrap();
+//     let scopes: Vec<&str> = scope.split(',').collect();
+//     let mut backend_url = env::var("BACKEND_URL").unwrap();
+//     backend_url.push_str("/redirect/google");
 
-    passport.using(
-        "google",
-        GoogleStrategy::new(
-            env::var("GOOGLE_CLIENT_ID").unwrap().as_str(),
-            env::var("GOOGLE_CLIENT_SECRET").unwrap().as_str(),
-            scopes,
-            backend_url.as_str(),
-            env::var("FAILURE_REDIRECT_URI").unwrap().as_str(),
-        ),
-    );
-    passport
+//     passport.using(
+//         "google",
+//         GoogleStrategy::new(
+//             env::var("GOOGLE_CLIENT_ID").unwrap().as_str(),
+//             env::var("GOOGLE_CLIENT_SECRET").unwrap().as_str(),
+//             scopes,
+//             backend_url.as_str(),
+//             env::var("FAILURE_REDIRECT_URI").unwrap().as_str(),
+//         ),
+//     );
+//     passport
+// }
+fn profile_to_user(profile: &Value) -> Result<User, String> {
+    let id = uuid::Uuid::new_v4();
+
+    let first_name = profile["names"][0]["givenName"]
+        .as_str()
+        .map(|s| s.to_string());
+
+    let last_name = profile["names"][0]["familyName"]
+        .as_str()
+        .map(|s| s.to_string());
+
+    let image_url = profile["photos"][0]["url"]
+        .as_str()
+        .map(|s| s.to_string());
+
+    let username = profile["names"][0]["displayName"]
+        .as_str()
+        .ok_or("Missing displayName")?
+        .to_string();
+
+    let email = profile["emailAddresses"][0]["value"]
+        .as_str()
+        .ok_or("Missing email value")?
+        .to_string();
+
+    let created_at = Utc::now().to_string();
+    let updated_at = Utc::now().to_string();
+
+    Ok(User {
+        id,
+        first_name,
+        last_name,
+        image_url,
+        username,
+        email,
+        created_at,
+        updated_at,
+        session_id: None,
+        profile_is_finished: false,
+        password_is_set: false,
+    })
 }

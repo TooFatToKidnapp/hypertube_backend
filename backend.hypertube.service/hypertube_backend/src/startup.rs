@@ -1,6 +1,7 @@
-use crate::passport::{configure_passport_service, passport_route_auth, passport_route_redirect};
+use crate::passport::{generate_passports, passport_route_redirect, passport_oauth};
 use crate::routes::hello_world::handler;
 use crate::routes::movies::movie_source;
+use crate::routes::subtitles::subtitle_source;
 use crate::routes::password_rest::password_source;
 use crate::routes::user::user_source;
 use crate::routes::{comment_source, CronJobScheduler};
@@ -12,6 +13,7 @@ use actix_web::{
 };
 use sqlx::PgPool;
 use std::net::TcpListener;
+use tokio::sync::RwLock;
 use tracing_actix_web::TracingLogger;
 
 use actix_cors::Cors;
@@ -30,12 +32,14 @@ fn configure_cors(frontend_url: &str) -> Cors {
         .allowed_headers(vec![header::AUTHORIZATION, header::ACCEPT])
         .allowed_header(header::CONTENT_TYPE)
         .max_age(3600)
+        .supports_credentials()
 }
 
 pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std::io::Error> {
     dotenv().ok();
     let db_pool = Data::new(db_pool);
-    let passport_state = Data::new(configure_passport_service());
+    let passport_state =
+        Data::new(RwLock::new(generate_passports()?));
     let cron_task_handler = Data::new(CronJobScheduler::new());
     let frontend_url = env::var("FRONTEND_URL").expect("FRONTEND_URL must be set");
 
@@ -46,12 +50,13 @@ pub fn run_server(listener: TcpListener, db_pool: PgPool) -> Result<Server, std:
             .wrap(TracingLogger::default())
             .app_data(cron_task_handler.clone())
             .app_data(passport_state.clone())
-            .service(passport_route_auth())
+            .service(passport_oauth())
             .service(passport_route_redirect())
             .service(comment_source(&db_pool))
             .service(user_source(&db_pool))
             .service(password_source())
             .service(movie_source(&db_pool))
+            .service(subtitle_source(&db_pool))
             .route("/", web::get().to(handler))
             .app_data(db_pool.clone())
     })

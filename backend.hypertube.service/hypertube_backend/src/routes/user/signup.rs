@@ -186,7 +186,7 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
     let cookie = Cookie::build("session", session_id)
         .secure(true)
         .http_only(true)
-        .same_site(SameSite::Strict)
+        .same_site(SameSite::None)
         .path("/")
         .expires(Expiration::DateTime(
             OffsetDateTime::now_utc() + Duration::days(7),
@@ -203,6 +203,9 @@ pub async fn user_signup(body: Json<CreateUserRequest>, connection: Data<PgPool>
             "created_at": user.created_at.to_string(),
             "updated_at": user.updated_at.to_string(),
             "username" : user.username,
+            "image_url": user.profile_picture_url,
+            "profile_is_finished": user.profile_is_finished,
+            "password_is_set":user.password_is_set,
         }
     }))
 }

@@ -14,8 +14,8 @@ use validator::Validate;
 #[derive(Deserialize, Validate)]
 pub struct ValidateResetCode {
     pub code: String,
-    #[validate(email(message = "Not a valid email"))]
-    pub email: String,
+    // #[validate(email(message = "Not a valid email"))]
+    pub username: String,
 }
 
 pub async fn validate_password_reset_code(
@@ -41,9 +41,9 @@ pub async fn validate_password_reset_code(
 
     let query_res = sqlx::query!(
         r#"
-            SELECT * FROM users WHERE email = $1
+            SELECT * FROM users WHERE username = $1
         "#,
-        body.email
+        body.username
     )
     .fetch_one(connection.as_ref())
     .instrument(query_span.clone())
@@ -60,9 +60,11 @@ pub async fn validate_password_reset_code(
             created_at: user.created_at.to_string(),
             updated_at: user.updated_at.to_string(),
             session_id: None,
+            profile_is_finished: user.profile_is_finished,
+            password_is_set: user.password_is_set,
         },
         Err(sqlx::Error::RowNotFound) => {
-            tracing::info!("User with email {} not found in database", body.email);
+            tracing::info!("User with username {} not found in database", body.username);
             return HttpResponse::NotFound().json(json!({
                 "message": "User not found"
             }));
@@ -77,9 +79,9 @@ pub async fn validate_password_reset_code(
 
     let query_res = sqlx::query!(
         r#"
-            SELECT * FROM password_verification_code WHERE user_id = $1 ORDER BY created_at DESC LIMIT 1
+            SELECT * FROM password_verification_code WHERE username = $1 ORDER BY created_at DESC LIMIT 1
         "#,
-        user.id
+        user.username
     ).fetch_one(connection.as_ref())
     .instrument(query_span.clone())
     .await;

@@ -3,7 +3,7 @@ CREATE TABLE movie_torrent(
   id uuid NOT NULL,
   PRIMARY KEY (id),
   movie_source movie_source_type NOT NULL,
-  movie_id INT NOT NULL,
+  movie_id VARCHAR(30) NOT NULL,
   created_at timestamptz NOT NULL,
   movie_path TEXT NOT NULL,
   file_type TEXT NOT NULL,

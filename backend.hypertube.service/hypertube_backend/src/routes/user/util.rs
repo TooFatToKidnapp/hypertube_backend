@@ -5,7 +5,7 @@ use actix_web::{
         time::{Duration, OffsetDateTime},
         Cookie, Expiration, SameSite,
     },
-    web::{self, get, patch, post},
+    web::{self, delete, get, patch, post},
     Scope,
 };
 use chrono::Utc;
@@ -17,8 +17,7 @@ use validator::ValidationError;
 use crate::middleware::{Authentication, User};
 
 use super::{
-    get_user, profile_password_reset, sign_out_user, update_profile_information,
-    upload_user_profile_image, user_login, user_signup,
+    check_session, finish_user_profile_information::finish_profile_information, get_user, get_profile, password_set::profile_password_set, profile_password_reset, sign_out_user, update_profile_information, upload_user_profile_image, user_login, user_signup
 };
 
 pub fn user_source(db_pool: &PgPool) -> Scope {
@@ -32,6 +31,12 @@ pub fn user_source(db_pool: &PgPool) -> Scope {
                 .wrap(Authentication::new(db_pool.clone())),
         )
         .route(
+            "/passwordset",
+            post()
+                .to(profile_password_set)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
             "/upload",
             post()
                 .to(upload_user_profile_image)
@@ -39,7 +44,7 @@ pub fn user_source(db_pool: &PgPool) -> Scope {
         )
         .route(
             "/sign-out",
-            get()
+            delete()
                 .to(sign_out_user)
                 .wrap(Authentication::new(db_pool.clone())),
         )
@@ -50,9 +55,29 @@ pub fn user_source(db_pool: &PgPool) -> Scope {
                 .wrap(Authentication::new(db_pool.clone())),
         )
         .route(
-            "/{id}",
+            "/finish",
+            patch()
+                .to(finish_profile_information)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/check_session",
+            get()
+                .to(check_session)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/get_info",
+            // "/{id}",
             get()
                 .to(get_user)
+                .wrap(Authentication::new(db_pool.clone())),
+        )
+        .route(
+            "/get_profile/{id}",
+            // "/{id}",
+            get()
+                .to(get_profile)
                 .wrap(Authentication::new(db_pool.clone())),
         )
 }
@@ -219,7 +244,9 @@ pub async fn create_session(
             return Err(Box::new(err));
         }
     };
+    tracing::info!("SETING COOKIES ");
     let cookie = Cookie::build("session", session_id)
+        // .domain("127.0.0.1")
         .secure(true)
         .http_only(true)
         .same_site(same_site)

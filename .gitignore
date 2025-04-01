@@ -2,3 +2,10 @@ postgres_data
 rqbit_cache
 rqbit_db
 *.env*
+/target
+.env
+configuration.json
+.vscode
+logs.txt
+Download
+target

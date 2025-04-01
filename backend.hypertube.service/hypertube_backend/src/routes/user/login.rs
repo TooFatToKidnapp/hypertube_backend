@@ -13,8 +13,10 @@ use validator::Validate;
 
 #[derive(Deserialize, Debug, Validate)]
 pub struct UserData {
-    #[validate(email(message = "Not a valid email"))]
-    pub email: String,
+    // #[validate(email(message = "Not a valid email"))]
+    // #[validate(username(message = "Not a valid email"))]
+    pub  username: String,
+    // pub email: String,
     pub password: String,
 }
 
@@ -39,9 +41,9 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
 
     let result = sqlx::query!(
         r#"
-            SELECT * FROM users WHERE email = $1 AND password_hash IS NOT NULL
+            SELECT * FROM users WHERE username = $1 AND password_hash IS NOT NULL
         "#,
-        body.email
+        body.username
     )
     .fetch_one(connection.get_ref())
     .instrument(query_span)
@@ -50,12 +52,25 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
     let user = match result {
         Ok(user) => {
             tracing::info!("got user form database {:#?}", user);
+            // User {
+            //     id: user.id,
+            //     first_name: user.first_name,
+            //     last_name: user.last_name,
+            //     image_url: user.profile_picture_url,
+            //     username: user.username,
+            //     created_at: user.created_at.to_string(),
+            //     updated_at: user.updated_at.to_string(),
+            //     email: user.email,
+            //     session_id: None,
+            //     profile_is_finished: user.profile_is_finished,
+            //     password_is_set: user.password_is_set,
+            // }
             user
         }
         Err(sqlx::Error::RowNotFound) => {
             tracing::error!("User not found in the database");
             return HttpResponse::Unauthorized().json(json!({
-                "Error": "Invalid email or password"
+                "Error": "Invalid username or password"
             }));
         }
         Err(err) => {
@@ -86,7 +101,7 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
         false => {
             tracing::error!("Wrong Password");
             return HttpResponse::Unauthorized().json(json!({
-                "Error": "Invalid email or password"
+                "Error": "Invalid username or password"
             }));
         }
     };
@@ -102,8 +117,10 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
         updated_at: user.updated_at.to_string(),
         username: user.username,
         session_id: None,
+        profile_is_finished: user.profile_is_finished,
+        password_is_set: user.password_is_set,
     };
-    let session_result = create_session(connection.as_ref(), user.clone(), SameSite::Strict).await;
+    let session_result = create_session(connection.as_ref(), user.clone(), SameSite::None).await;
     if session_result.is_err() {
         tracing::error!(
             "Failed to generate user session  {}",
@@ -124,7 +141,9 @@ pub async fn user_login(body: Json<UserData>, connection: Data<PgPool>) -> HttpR
                 "created_at": user.created_at.to_string(),
                 "updated_at": user.updated_at.to_string(),
                 "username" : user.username,
-                "image_url": user.image_url
+                "image_url": user.image_url,
+                "profile_is_finished": user.profile_is_finished,
+                "password_is_set":user.password_is_set,
             }
         }))
 }

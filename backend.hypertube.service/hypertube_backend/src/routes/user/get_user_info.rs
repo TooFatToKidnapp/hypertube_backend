@@ -11,37 +11,18 @@ use serde_json::json;
 use sqlx::PgPool;
 use tracing::Instrument;
 use uuid::Uuid;
+// use crate::models::RequestParam;
 use validator::Validate;
 
-#[derive(Deserialize, Validate)]
-pub struct RequestParam {
-    #[validate(custom(function = "validate_uuid"))]
-    pub id: String,
-}
+// #[derive(Deserialize, Validate)]
+// pub struct RequestParam {
+//     #[validate(custom(function = "validate_uuid"))]
+//     pub id: String,
+// }
 
 pub async fn get_user(
     req: HttpRequest,
-    path: Path<RequestParam>,
-    connection: Data<PgPool>,
 ) -> HttpResponse {
-    let query_span = tracing::info_span!("Get User info event");
-
-    let is_valid = path.validate();
-    if let Err(error) = is_valid {
-        let source = error.field_errors();
-        for i in source.iter() {
-            for err in i.1.iter() {
-                if let Some(message) = err.message.as_ref() {
-                    tracing::error!("Error: {}", message.as_ref());
-                    return HttpResponse::BadRequest().json(json!({
-                        "Error" : message.as_ref()
-                    }));
-                }
-            }
-        }
-        return HttpResponse::BadRequest().finish();
-    }
-
     let visitor_id = {
         let extension = req.extensions();
         let user_option = extension.get::<Rc<User>>();
@@ -49,12 +30,89 @@ pub async fn get_user(
             Some(user) => user.id,
             None => {
                 tracing::info!("User field not found in req object");
-                return HttpResponse::NotFound().json(json!({
+                return HttpResponse::Unauthorized().json(json!({
                     "error": "user not found"
                 }));
             }
         }
     };
+
+    let user_info = {
+        let extension = req.extensions();
+        let user_option = extension.get::<Rc<User>>();
+        match user_option {
+            Some(user) => user.clone(),
+            None => {
+                tracing::info!("User field not found in req object");
+                return HttpResponse::Unauthorized().json(json!({
+                    "error": "user not found"
+                }));
+            }
+        }
+    };
+
+    let response_body = json!({
+        "data" : {
+            "id": user_info.id.to_string(),
+            "first_name": user_info.first_name,
+            "last_name": user_info.last_name,
+            "created_at": user_info.created_at.to_string(),
+            "updated_at": user_info.updated_at.to_string(),
+            "username" : user_info.username,
+            "image_url": user_info.image_url,
+            "email": user_info.email,
+            "profile_is_finished": user_info.profile_is_finished,
+            "password_is_set":user_info.password_is_set,
+        }
+    });
+
+    HttpResponse::Ok().json(response_body)
+}
+
+
+#[derive(Deserialize, Validate)]
+pub struct RequestParam {
+    #[validate(custom(function = "validate_uuid"))]
+    pub id: String,
+}
+
+pub async fn get_profile(
+    req: HttpRequest,
+    path: Path<RequestParam>,
+    connection: Data<PgPool>,
+) -> HttpResponse {
+    let query_span = tracing::info_span!("Get User info event");
+    // tracing::info!("{}", path);
+
+    // let is_valid = path.validate();
+    // if let Err(error) = is_valid {
+    //     let source = error.field_errors();
+    //     for i in source.iter() {
+    //         for err in i.1.iter() {
+    //             if let Some(message) = err.message.as_ref() {
+    //                 tracing::error!("Error: {}", message.as_ref());
+    //                 return HttpResponse::BadRequest().json(json!({
+    //                     "Error" : message.as_ref()
+    //                 }));
+    //             }
+    //         }
+    //     }
+    //     return HttpResponse::BadRequest().finish();
+    // }
+
+    // let visitor_id = {
+    //     let extension = req.extensions();
+    //     let user_option = extension.get::<Rc<User>>();
+    //     match user_option {
+    //         Some(user) => user.id,
+    //         None => {
+    //             tracing::info!("User field not found in req object");
+    //             return HttpResponse::NotFound().json(json!({
+    //                 "error": "user not found"
+    //             }));
+    //         }
+    //     }
+    // };
 
     let parsed_user_id = match path.id.parse::<Uuid>() {
         Ok(uuid) => uuid,
@@ -87,6 +145,8 @@ pub async fn get_user(
             id: user.id,
             created_at: user.created_at.to_string(),
             updated_at: user.updated_at.to_string(),
+            password_is_set: user.password_is_set,
+            profile_is_finished:user.profile_is_finished,
         },
         Err(sqlx::Error::RowNotFound) => {
             tracing::error!("User not found");
@@ -106,15 +166,15 @@ pub async fn get_user(
             "first_name": user_info.first_name,
             "last_name": user_info.last_name,
             "created_at": user_info.created_at.to_string(),
-            "updated_at": user_info.updated_at.to_string(),
+            // "updated_at": user_info.updated_at.to_string(),
             "username" : user_info.username,
             "image_url": user_info.image_url
         }
     });
 
-    if parsed_user_id == visitor_id {
-        response_body["data"]["email"] = user_info.email.into();
-    }
+    // if parsed_user_id == visitor_id {
+    //     response_body["data"]["email"] = user_info.email.into();
+    // }
 
     HttpResponse::Ok().json(response_body)
 }
